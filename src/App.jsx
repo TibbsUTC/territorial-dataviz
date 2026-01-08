@@ -9,32 +9,37 @@ import 'leaflet/dist/leaflet.css';
 
 const COMMUNES_COORDS = {
   // Établissements principaux
-  "SEMUR": [47.4833, 4.3333], "SEMUR EN AUXOIS": [47.4833, 4.3333],
+  "SEMUR": [47.4833, 4.3333], "SEMUR EN AUXOIS": [47.4833, 4.3333], "SEMUR IDV": [47.4833, 4.3333],
   "CHATILLON": [47.8583, 4.5750], "CHATILLON SUR SEINE": [47.8583, 4.5750],
   "MONTBARD": [47.6250, 4.3333], 
-  // Communes IME
-  "BUNCEY": [47.8167, 4.5500],
+  // Communes IME - Zone Sud/Morvan
   "LIERNAIS": [47.2167, 4.2833], "SAULIEU": [47.2833, 4.2333],
-  "MONTLAY": [47.3167, 4.2000], "STE COLOMBE SUR SEINE": [47.8500, 4.5333],
+  "MONTLAY": [47.3167, 4.2000], "PRECY SOUS THIL": [47.3833, 4.3167],
+  "BRIANNY": [47.4167, 4.2667], "COUTARNOUX": [47.5500, 3.9500],
+  // Communes IME - Zone Centre
   "VENAREY": [47.5417, 4.4583], "VENAREY LES LAUMES": [47.5417, 4.4583],
-  "MAGNY LA VILLE": [47.4500, 4.3667], "NUITS ST GEORGES": [47.1333, 4.9500],
-  "MAISEY LE DUC": [47.8833, 4.6333], "BRIANNY": [47.4167, 4.2667],
-  "VERGIGNY": [47.9167, 3.7167], "LAMARGELLE": [47.5333, 4.8000],
-  "ARCY SUR CURE": [47.5833, 3.7500], "FROLOIS": [47.5667, 4.4833],
-  "ANCEY": [47.3667, 4.9167], "VERREY SOUS SALMAISE": [47.4333, 4.5333],
+  "MAGNY LA VILLE": [47.4500, 4.3667], "VITTEAUX": [47.4000, 4.5333],
+  "ALISE STE REINE": [47.5333, 4.5000], "POUILLENAY": [47.5167, 4.4333],
+  "COURCELLES": [47.4667, 4.3833], "MONTBERTHAULT": [47.4333, 4.3500],
+  "FROLOIS": [47.5667, 4.4833], "MENETREUX": [47.5500, 4.4333],
+  "ATHIE": [47.5167, 4.5000], "CHANCEAU": [47.5833, 4.5500],
+  "LE VAL LARREY": [47.5333, 4.4167], "MARIGNY LE CAHOUET": [47.4667, 4.4167],
+  "LANTILLY": [47.5000, 4.4000], "CREPAND": [47.6500, 4.3500],
+  "SAINT REMY": [47.6000, 4.3000], "ST REMY": [47.6000, 4.3000],
+  "VERREY SOUS SALMAISE": [47.4333, 4.5333], "VERREY SOUS SS": [47.4333, 4.5333],
+  // Communes IME - Zone Nord/Châtillon
+  "BUNCEY": [47.8167, 4.5500], "STE COLOMBE SUR SEINE": [47.8500, 4.5333],
+  "MAISEY LE DUC": [47.8833, 4.6333], "VILLEDIEU": [47.8000, 4.6000],
   "FAVEROLLES": [47.8333, 4.4500], "POTHIERES": [47.9333, 4.5000],
-  "COURCELLES": [47.4667, 4.3833], "COUTARNOUX": [47.5500, 3.9500],
-  "VITTEAUX": [47.4000, 4.5333], "PRECY SOUS THIL": [47.3833, 4.3167],
-  "ALISE STE REINE": [47.5333, 4.5000], "BRION SUR OURCE": [47.8833, 4.6833],
-  "MONTBERTHAULT": [47.4333, 4.3500], "LANTILLY": [47.5000, 4.4000],
-  "VILLEDIEU": [47.8000, 4.6000], "ESCAMPS": [47.6833, 3.6167],
-  "POUILLENAY": [47.5167, 4.4333], "MUSSY SUR SEINE": [47.9667, 4.5000],
-  "CHANCEAU": [47.5833, 4.5500], "LE VAL LARREY": [47.5333, 4.4167],
-  "MENETREUX": [47.5500, 4.4333], "MARIGNY LE CAHOUET": [47.4667, 4.4167],
-  "ATHIE": [47.5167, 4.5000], "CREPAND": [47.6500, 4.3500],
-  "SAINT REMY": [47.6000, 4.3000], "CHEVIGNY": [47.3000, 5.0000],
+  "BRION SUR OURCE": [47.8833, 4.6833], "MUSSY SUR SEINE": [47.9667, 4.5000],
   "AIGNAY": [47.7000, 4.7333], "AIGNAY LE DUC": [47.7000, 4.7333],
-  // UA Avallon (2 enfants rattachés à Semur)
+  // Communes IME - Zone Est (éloignées)
+  "LAMARGELLE": [47.5333, 4.8000], "ANCEY": [47.3667, 4.9167],
+  "CHEVIGNY": [47.3000, 5.0000], "CHEVIGNY MILLERY": [47.3000, 5.0000],
+  "NUITS ST GEORGES": [47.1333, 4.9500],
+  // Communes IME - Zone Ouest (très éloignées)
+  "VERGIGNY": [47.9167, 3.7167], "ARCY SUR CURE": [47.5833, 3.7500],
+  "ESCAMPS": [47.6833, 3.6167],
   "AVALLON": [47.4900, 3.9000], "UA AVALLON": [47.4900, 3.9000],
   // Communes SESSAD
   "VILLAINES EN DUESMOIS": [47.7000, 4.6500], "SAVOISY": [47.7167, 4.5667],
@@ -44,73 +49,104 @@ const COMMUNES_COORDS = {
   "MOLESME": [47.9500, 4.4333], "BAIGNEUX LES JUIFS": [47.6000, 4.6500],
   "MUSSY LA FOSSE": [47.5500, 4.4500], "MOUTIERS ST JEAN": [47.5833, 4.2833],
   "BELAN SUR OURCE": [47.8167, 4.6000], "AMPILLY LE SEC": [47.7833, 4.5833],
-  "VOULAINES LES TEMPLIERS": [47.8333, 4.7833],
+  "VOULAINES LES TEMPLIERS": [47.8333, 4.7833], "IDV SEMUR": [47.4833, 4.3333],
+  "AIGNEY LE DUC": [47.7000, 4.7333],
   // Scénarios - Nouvelles antennes
   "ROUVRAY": [47.4667, 4.0833], "EPOISSES": [47.5000, 4.1667],
   "GUILLON": [47.5333, 4.0833], "IS SUR TILLE": [47.5167, 5.1000],
   "SELONGEY": [47.5833, 5.1833],
 };
 
-// Données IME - Source : PDF File active VyV3 (45 enfants, 2 sans activités)
-// Total actif : 43 enfants
-const IME_DATA = [
-  // Polyhandicap (9 enfants)
-  { lieu: "SEMUR", handicap: "Polyhandicap", etablissement: "SEMUR", km: 4 },
-  { lieu: "BUNCEY", handicap: "Polyhandicap", etablissement: "CHATILLON", km: 8 },
-  { lieu: "SEMUR", handicap: "Polyhandicap", etablissement: "SEMUR", km: 4 },
-  { lieu: "LIERNAIS", handicap: "Polyhandicap", etablissement: "SEMUR", km: 32 },
-  { lieu: "SAULIEU", handicap: "Polyhandicap", etablissement: "SEMUR", km: 30 },
-  { lieu: "MONTLAY", handicap: "Polyhandicap", etablissement: "SEMUR", km: 20 },
-  { lieu: "STE COLOMBE SUR SEINE", handicap: "Polyhandicap", etablissement: "CHATILLON", km: 8 },
-  { lieu: "MONTBARD", handicap: "Polyhandicap", etablissement: "MONTBARD", km: 4 },
-  { lieu: "SAULIEU", handicap: "Polyhandicap", etablissement: "SEMUR", km: 30 },
-  // DI et autres (reste)
-  { lieu: "CHATILLON", handicap: "DI", etablissement: "CHATILLON", km: 4 },
-  { lieu: "MUSSY SUR SEINE", handicap: "DI TSA", etablissement: "CHATILLON", km: 16 },
-  { lieu: "CHANCEAU", handicap: "DI", etablissement: "MONTBARD", km: 22 },
-  { lieu: "CHATILLON", handicap: "DI", etablissement: "CHATILLON", km: 4 },
-  { lieu: "LE VAL LARREY", handicap: "DI", etablissement: "SEMUR", km: 12 },
-  { lieu: "SEMUR", handicap: "DI TSA", etablissement: "SEMUR", km: 4 },
-  { lieu: "MENETREUX", handicap: "DI", etablissement: "MONTBARD", km: 18 },
-  { lieu: "MONTBARD", handicap: "Polyhandicap internat", etablissement: "MONTBARD", km: 4 },
-  { lieu: "MARIGNY LE CAHOUET", handicap: "DI", etablissement: "SEMUR", km: 10 },
-  { lieu: "MAGNY LA VILLE", handicap: "DI", etablissement: "SEMUR", km: 8 },
-  { lieu: "MONTBARD", handicap: "DI", etablissement: "MONTBARD", km: 4 },
-  { lieu: "STE COLOMBE SUR SEINE", handicap: "DI", etablissement: "CHATILLON", km: 8 },
-  { lieu: "MONTBARD", handicap: "DI troubles associés", etablissement: "MONTBARD", km: 4 },
-  { lieu: "ATHIE", handicap: "DI", etablissement: "MONTBARD", km: 20 },
-  { lieu: "CHATILLON", handicap: "DI", etablissement: "CHATILLON", km: 4 },
-  { lieu: "SEMUR", handicap: "DI", etablissement: "SEMUR", km: 4 },
-  { lieu: "LIERNAIS", handicap: "DI", etablissement: "MONTBARD", km: 45 },
-  { lieu: "SEMUR", handicap: "DI TSA", etablissement: "SEMUR", km: 4 },
-  { lieu: "VENAREY", handicap: "DI", etablissement: "SEMUR", km: 12 },
-  { lieu: "SAINT REMY", handicap: "DI", etablissement: "MONTBARD", km: 10 },
-  { lieu: "CHEVIGNY", handicap: "DI", etablissement: "SEMUR", km: 55 },
-  { lieu: "AIGNAY", handicap: "DI", etablissement: "CHATILLON", km: 28 },
-  // UA AVALLON - 2 enfants (domicile Avallon, rattachés à SEMUR)
-  { lieu: "AVALLON", handicap: "DI", etablissement: "SEMUR", km: 42 },
-  { lieu: "AVALLON", handicap: "DI", etablissement: "SEMUR", km: 42 },
-  { lieu: "VENAREY", handicap: "DI", etablissement: "SEMUR", km: 12 },
-  { lieu: "MONTBARD", handicap: "DI", etablissement: "MONTBARD", km: 4 },
-  { lieu: "CHATILLON", handicap: "TSA", etablissement: "CHATILLON", km: 4 },
-  { lieu: "MAGNY LA VILLE", handicap: "DI", etablissement: "SEMUR", km: 8 },
-  { lieu: "SEMUR", handicap: "DI", etablissement: "SEMUR", km: 4 },
-  { lieu: "MAISEY LE DUC", handicap: "DI", etablissement: "CHATILLON", km: 15 },
-  { lieu: "BRIANNY", handicap: "DI", etablissement: "SEMUR", km: 10 },
-  { lieu: "LAMARGELLE", handicap: "DI", etablissement: "MONTBARD", km: 45 },
-  { lieu: "ARCY SUR CURE", handicap: "TSA", etablissement: "SEMUR", km: 42 },
-  { lieu: "LAMARGELLE", handicap: "DI", etablissement: "MONTBARD", km: 45 },
-  { lieu: "SEMUR", handicap: "DI", etablissement: "SEMUR", km: 4 },
-  { lieu: "FROLOIS", handicap: "DI", etablissement: "MONTBARD", km: 18 },
-  { lieu: "VITTEAUX", handicap: "DI", etablissement: "SEMUR", km: 23 },
-  { lieu: "PRECY SOUS THIL", handicap: "DI", etablissement: "SEMUR", km: 15 },
-  { lieu: "BRION SUR OURCE", handicap: "DI", etablissement: "CHATILLON", km: 18 },
-  { lieu: "MENETREUX", handicap: "DI", etablissement: "SEMUR", km: 12 },
-  { lieu: "VILLEDIEU", handicap: "DI", etablissement: "SEMUR", km: 22 },
+// ═══════════════════════════════════════════════════════════════════════════════
+// DONNÉES EXACTES DU CSV - 112 enfants (72 Établissement + 40 PMO/SESSAD)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// CME Montbard - 9 enfants Polyhandicap
+const CME_DATA = [
+  { lieu: "SEMUR", handicap: "Polyhandicap", etablissement: "CME Montbard", km: 19.4 },
+  { lieu: "BUNCEY", handicap: "Polyhandicap", etablissement: "CME Montbard", km: 50.9 },
+  { lieu: "SEMUR", handicap: "Polyhandicap", etablissement: "CME Montbard", km: 50.9 },
+  { lieu: "LIERNAIS", handicap: "Polyhandicap", etablissement: "CME Montbard", km: 56.9 },
+  { lieu: "SAULIEU", handicap: "Polyhandicap", etablissement: "CME Montbard", km: 30.2 },
+  { lieu: "MONTLAY", handicap: "Polyhandicap", etablissement: "CME Montbard", km: 20.2 },
+  { lieu: "STE COLOMBE SUR SEINE", handicap: "Polyhandicap", etablissement: "CME Montbard", km: 56.6 },
+  { lieu: "MONTBARD", handicap: "Polyhandicap", etablissement: "CME Montbard", km: 4 },
+  { lieu: "SAULIEU", handicap: "Polyhandicap", etablissement: "CME Montbard", km: 30.2 },
 ];
 
-// Données SESSAD Montbard - Source : PDF File active VyV3
-// Distances = trajet domicile/école (aller)
+// IME Châtillon - 22 enfants
+const IME_CHATILLON_DATA = [
+  { lieu: "CHATILLON", handicap: "", etablissement: "IME Châtillon", km: 4 },
+  { lieu: "MUSSY SUR SEINE", handicap: "DI TSA", etablissement: "IME Châtillon", km: 16.2 },
+  { lieu: "CHANCEAU", handicap: "DI", etablissement: "IME Châtillon", km: 45.2 },
+  { lieu: "CHATILLON", handicap: "DI", etablissement: "IME Châtillon", km: 5 },
+  { lieu: "LE VAL LARREY", handicap: "DI", etablissement: "IME Châtillon", km: 59.5 },
+  { lieu: "SEMUR", handicap: "DI TSA", etablissement: "IME Châtillon", km: 52 },
+  { lieu: "MENETREUX", handicap: "DI", etablissement: "IME Châtillon", km: 39.6 },
+  { lieu: "MONTBARD", handicap: "Polyhandicap", etablissement: "IME Châtillon", km: 33.1 },
+  { lieu: "MARIGNY LE CAHOUET", handicap: "DI", etablissement: "IME Châtillon", km: 54.4 },
+  { lieu: "MAGNY LA VILLE", handicap: "DI", etablissement: "IME Châtillon", km: 54.4 },
+  { lieu: "MONTBARD", handicap: "DI", etablissement: "IME Châtillon", km: 33.1 },
+  { lieu: "STE COLOMBE SUR SEINE", handicap: "DI", etablissement: "IME Châtillon", km: 56.7 },
+  { lieu: "MONTBARD", handicap: "DI Psychique", etablissement: "IME Châtillon", km: 30.1 },
+  { lieu: "ATHIE", handicap: "DI", etablissement: "IME Châtillon", km: 45.2 },
+  { lieu: "CHATILLON", handicap: "DI", etablissement: "IME Châtillon", km: 5 },
+  { lieu: "SEMUR", handicap: "DI", etablissement: "IME Châtillon", km: 52 },
+  { lieu: "CREPAND", handicap: "DI", etablissement: "IME Châtillon", km: 36.7 },
+  { lieu: "SEMUR", handicap: "DI TSA", etablissement: "IME Châtillon", km: 52 },
+  { lieu: "VENAREY", handicap: "DI", etablissement: "IME Châtillon", km: 44.8 },
+  { lieu: "SAINT REMY", handicap: "DI", etablissement: "IME Châtillon", km: 22.9 },
+  { lieu: "CHEVIGNY MILLERY", handicap: "DI", etablissement: "IME Châtillon", km: 54.8 },
+  { lieu: "AIGNAY", handicap: "DI", etablissement: "IME Châtillon", km: 33.6 },
+];
+
+// IME Semur - 41 enfants
+const IME_SEMUR_DATA = [
+  { lieu: "UA AVALLON", handicap: "DI", etablissement: "IME Semur", km: 43.5 },
+  { lieu: "VENAREY", handicap: "DI", etablissement: "IME Semur", km: 12.3 },
+  { lieu: "MONTBARD", handicap: "DI", etablissement: "IME Semur", km: 19.6 },
+  { lieu: "CHATILLON", handicap: "TSA", etablissement: "IME Semur", km: 52 },
+  { lieu: "UA AVALLON", handicap: "DI", etablissement: "IME Semur", km: 43.5 },
+  { lieu: "SEMUR", handicap: "DI", etablissement: "IME Semur", km: 6 },
+  { lieu: "MAGNY LA VILLE", handicap: "DI", etablissement: "IME Semur", km: 17.1 },
+  { lieu: "SEMUR", handicap: "DI", etablissement: "IME Semur", km: 4 },
+  { lieu: "MAISEY LE DUC", handicap: "DI", etablissement: "IME Semur", km: 62 },
+  { lieu: "BRIANNY", handicap: "DI", etablissement: "IME Semur", km: 9.5 },
+  { lieu: "VERGIGNY", handicap: "DI", etablissement: "IME Semur", km: 82 },
+  { lieu: "LAMARGELLE", handicap: "DI", etablissement: "IME Semur", km: 49.2 },
+  { lieu: "ARCY SUR CURE", handicap: "TSA", etablissement: "IME Semur", km: 64 },
+  { lieu: "LAMARGELLE", handicap: "DI", etablissement: "IME Semur", km: 49.2 },
+  { lieu: "SEMUR", handicap: "DI", etablissement: "IME Semur", km: 4 },
+  { lieu: "FROLOIS", handicap: "DI", etablissement: "IME Semur", km: 31.2 },
+  { lieu: "ANCEY", handicap: "TSA", etablissement: "IME Semur", km: 65.2 },
+  { lieu: "VERREY SOUS SALMAISE", handicap: "DI", etablissement: "IME Semur", km: 36 },
+  { lieu: "FAVEROLLES", handicap: "DI", etablissement: "IME Semur", km: 72 },
+  { lieu: "POTHIERES", handicap: "DI", etablissement: "IME Semur", km: 60 },
+  { lieu: "COURCELLES", handicap: "TSA", etablissement: "IME Semur", km: 10 },
+  { lieu: "COUTARNOUX", handicap: "DI", etablissement: "IME Semur", km: 36.2 },
+  { lieu: "SEMUR", handicap: "DI", etablissement: "IME Semur", km: 6 },
+  { lieu: "MONTBARD", handicap: "DI", etablissement: "IME Semur", km: 19.6 },
+  { lieu: "VITTEAUX", handicap: "DI", etablissement: "IME Semur", km: 23.4 },
+  { lieu: "MONTBARD", handicap: "DI", etablissement: "IME Semur", km: 19.6 },
+  { lieu: "VITTEAUX", handicap: "DI", etablissement: "IME Semur", km: 23.4 },
+  { lieu: "MONTBARD", handicap: "DI", etablissement: "IME Semur", km: 19.6 },
+  { lieu: "PRECY SOUS THIL", handicap: "DI", etablissement: "IME Semur", km: 15 },
+  { lieu: "CHATILLON", handicap: "DI", etablissement: "IME Semur", km: 52 },
+  { lieu: "ALISE STE REINE", handicap: "DI", etablissement: "IME Semur", km: 16 },
+  { lieu: "MAGNY LA VILLE", handicap: "DI", etablissement: "IME Semur", km: 17.1 },
+  { lieu: "BRION SUR OURCE", handicap: "DI", etablissement: "IME Semur", km: 61.9 },
+  { lieu: "MONTBERTHAULT", handicap: "DI", etablissement: "IME Semur", km: 18.9 },
+  { lieu: "ALISE STE REINE", handicap: "DI", etablissement: "IME Semur", km: 16 },
+  { lieu: "VILLEDIEU", handicap: "TSA", etablissement: "IME Semur", km: 56.5 },
+  { lieu: "CHATILLON", handicap: "DI", etablissement: "IME Semur", km: 52 },
+  { lieu: "ESCAMPS", handicap: "DI", etablissement: "IME Semur", km: 98.5 },
+  { lieu: "POUILLENAY", handicap: "DI", etablissement: "IME Semur", km: 13 },
+];
+
+// Combine tous les IME/CME = 72 enfants
+const IME_DATA = [...CME_DATA, ...IME_CHATILLON_DATA, ...IME_SEMUR_DATA];
+
+// PMO/SESSAD - 40 enfants
 const SESSAD_DATA = [
   { lieu: "VILLAINES EN DUESMOIS", handicap: "DI", ecole: "SAVOISY", km: 21 },
   { lieu: "DARCEY", handicap: "HM", ecole: "Venarey", km: 12.4 },
@@ -301,14 +337,23 @@ export default function App() {
     };
   }, [data, hyp]);
 
-  // Statistiques
-  const stats = useMemo(() => ({
-    total: data.length,
-    avgKm: data.length > 0 ? (data.reduce((s, d) => s + (d.km || 0), 0) / data.length).toFixed(1) : 0,
-    critiques: data.filter(d => d.km > 50).length,
-    proches: data.filter(d => d.km < 15).length,
-    communes: aggregatedData.length,
-  }), [data, aggregatedData]);
+  // Statistiques enrichies
+  const stats = useMemo(() => {
+    const aberrants = data.filter(d => d.km > 35).length; // Flux aberrants > 35km
+    const critiques = data.filter(d => d.km > 50).length; // Critiques > 50km
+    const proches = data.filter(d => d.km < 15).length;
+    const totalKm = data.reduce((s, d) => s + (d.km || 0), 0);
+    
+    return {
+      total: data.length,
+      avgKm: data.length > 0 ? (totalKm / data.length).toFixed(1) : 0,
+      aberrants, // Trajets > 35km (aberrants)
+      critiques, // Trajets > 50km (critiques)
+      proches,
+      communes: aggregatedData.length,
+      kmTotal: Math.round(totalKm), // Total km parcourus
+    };
+  }, [data, aggregatedData]);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -397,11 +442,12 @@ export default function App() {
         </div>
 
         {/* KPIs */}
-        <div className="grid grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-6 gap-4 mb-6">
           <KPICard icon={Users} label="Enfants suivis" value={stats.total} subValue={`${stats.communes} communes`} color="border-blue-500" />
-          <KPICard icon={MapPin} label="Distance moyenne" value={`${stats.avgKm} km`} subValue="Aller simple" color="border-amber-500" />
-          <KPICard icon={Target} label="Couverture" value={`${coverage.percentage}%`} subValue={`${coverage.covered}/${coverage.total} enfants`} color="border-emerald-500" />
-          <KPICard icon={AlertTriangle} label="Trajets critiques" value={stats.critiques} subValue="> 50 km" color="border-red-500" />
+          <KPICard icon={MapPin} label="Distance moyenne" value={`${stats.avgKm} km`} subValue={`${stats.kmTotal} km/jour total`} color="border-amber-500" />
+          <KPICard icon={Target} label="Couverture" value={`${coverage.percentage}%`} subValue={`${coverage.covered}/${coverage.total} < 15km`} color="border-emerald-500" />
+          <KPICard icon={AlertTriangle} label="Flux aberrants" value={stats.aberrants} subValue="> 35 km aller" color="border-orange-500" />
+          <KPICard icon={AlertTriangle} label="Trajets critiques" value={stats.critiques} subValue="> 50 km aller" color="border-red-500" />
           <KPICard icon={TrendingUp} label="Trajets proches" value={stats.proches} subValue="< 15 km" color="border-green-500" />
           </div>
 
@@ -579,7 +625,28 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Résumé distances */}
+              {/* Top Flux Aberrants */}
+              <div className="bg-red-50 rounded-xl shadow-sm border border-red-200 p-4">
+                <h3 className="font-bold text-red-800 mb-3 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4" /> Top Flux Aberrants
+            </h3>
+                <div className="space-y-2 max-h-[180px] overflow-y-auto">
+                  {data.filter(d => d.km > 50).sort((a, b) => b.km - a.km).slice(0, 8).map((d, i) => (
+                    <div key={i} className="flex justify-between items-center text-sm">
+                      <span className="text-red-700 truncate flex-1">{d.lieu}</span>
+                      <span className="text-red-600 font-bold ml-2">{d.km} km</span>
+                    </div>
+                  ))}
+                  {data.filter(d => d.km > 50).length === 0 && (
+                    <p className="text-sm text-slate-500 italic">Aucun trajet &gt; 50km</p>
+                  )}
+                </div>
+                <p className="text-xs text-red-600 mt-2 pt-2 border-t border-red-200">
+                  💡 Ces enfants font plus de 50km aller
+                </p>
+              </div>
+
+              {/* Répartition distances */}
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
                 <h3 className="font-bold text-slate-800 mb-3">Répartition distances</h3>
                 <div className="space-y-2">
@@ -591,23 +658,26 @@ export default function App() {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-slate-600 flex items-center gap-2">
-                      <span className="w-3 h-3 rounded-full bg-amber-500" /> 15-30 km
+                      <span className="w-3 h-3 rounded-full bg-amber-500" /> 15-35 km
                     </span>
-                    <span className="font-medium">{data.filter(d => d.km >= 15 && d.km < 30).length}</span>
+                    <span className="font-medium">{data.filter(d => d.km >= 15 && d.km < 35).length}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-slate-600 flex items-center gap-2">
-                      <span className="w-3 h-3 rounded-full bg-orange-500" /> 30-50 km
+                      <span className="w-3 h-3 rounded-full bg-orange-500" /> 35-50 km (aberrant)
                     </span>
-                    <span className="font-medium">{data.filter(d => d.km >= 30 && d.km < 50).length}</span>
+                    <span className="font-medium text-orange-600">{data.filter(d => d.km >= 35 && d.km < 50).length}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-slate-600 flex items-center gap-2">
-                      <span className="w-3 h-3 rounded-full bg-red-500" /> &gt; 50 km
+                      <span className="w-3 h-3 rounded-full bg-red-500" /> &gt; 50 km (critique)
                     </span>
-                    <span className="font-medium">{stats.critiques}</span>
+                    <span className="font-medium text-red-600">{stats.critiques}</span>
                   </div>
                 </div>
+                <p className="text-xs text-slate-500 mt-3 pt-2 border-t">
+                  Total : {stats.kmTotal} km/jour parcourus
+                </p>
               </div>
             </div>
           </div>
