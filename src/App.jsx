@@ -158,7 +158,7 @@ export default function App() {
   const [loadingAI, setLoadingAI] = useState(false);
   const [customData, setCustomData] = useState(null);
 
-  const data = customData || (activeTab === 'IME' ? IME_DATA : SESSAD_DATA);
+  const data = customData || (activeTab === 'ALL' ? [...IME_DATA, ...SESSAD_DATA] : activeTab === 'IME' ? IME_DATA : SESSAD_DATA);
 
   const aggregatedData = useMemo(() => {
     const grouped = {};
@@ -184,7 +184,7 @@ export default function App() {
     setLoadingAI(true);
     try {
       const prompt = `Tu es un consultant expert en médico-social. Analyse ces données territoriales:
-- ${stats.total} enfants suivis en ${activeTab}
+- ${stats.total} enfants suivis en ${activeTab === 'ALL' ? 'IME + SESSAD' : activeTab}
 - Distance moyenne: ${stats.avgKm} km
 - ${stats.critiques} enfants avec trajet > 50km (critique)
 - ${stats.communes} communes différentes
@@ -228,7 +228,9 @@ Fournis une recommandation stratégique concise (3-4 phrases) sur le maillage te
       <header className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 py-8">
         <div className="max-w-7xl mx-auto px-6">
           <h1 className="text-4xl font-black text-white mb-2">🗺️ Cartographie Territoriale</h1>
-          <p className="text-white/80">Analyse IME & SESSAD - Côte d'Or • Offre centralisée vs demande éclatée</p>
+          <p className="text-white/80">
+            Analyse {activeTab === 'ALL' ? 'IME + SESSAD' : activeTab} - Côte d'Or • Offre centralisée vs demande éclatée
+          </p>
         </div>
       </header>
 
@@ -244,10 +246,10 @@ Fournis une recommandation stratégique concise (3-4 phrases) sur le maillage te
         {/* Controls */}
         <div className="flex flex-wrap gap-4 mb-6 items-center">
           <div className="flex bg-slate-800 rounded-xl p-1">
-            {['IME', 'SESSAD'].map(tab => (
+            {['IME', 'SESSAD', 'ALL'].map(tab => (
               <button key={tab} onClick={() => { setActiveTab(tab); setCustomData(null); }}
                 className={`px-6 py-2 rounded-lg font-semibold transition-all ${activeTab === tab ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}>
-                {tab === 'IME' ? '🏫 IME' : '🎒 SESSAD'}
+                {tab === 'IME' ? '🏫 IME' : tab === 'SESSAD' ? '🎒 SESSAD' : '🌐 Tous (IME + SESSAD)'}
               </button>
             ))}
           </div>
@@ -297,40 +299,114 @@ Fournis une recommandation stratégique concise (3-4 phrases) sur le maillage te
             />
 
             {/* Zones couverture */}
-            {showZones && ETABLISSEMENTS.filter(e => activeTab === 'IME' ? e.type !== 'SESSAD' : e.type === 'SESSAD' || e.type === 'UA')
-              .map((etab, i) => (
+            {showZones && ETABLISSEMENTS.filter(e => {
+              if (activeTab === 'ALL') return true;
+              if (activeTab === 'IME') return e.type !== 'SESSAD';
+              return e.type === 'SESSAD' || e.type === 'UA';
+            }).map((etab, i) => (
                 <Circle key={i} center={etab.coords} radius={15000} pathOptions={{ color: etab.color, fillColor: etab.color, fillOpacity: 0.1, weight: 2, dashArray: '10,5' }} />
               ))}
 
             {/* Antennes proposées */}
-            {showAntennes && ANTENNES.map((ant, i) => (
-              <React.Fragment key={i}>
-                <Circle center={ant.coords} radius={12000} pathOptions={{ color: ant.color, fillColor: ant.color, fillOpacity: 0.15, weight: 2 }} />
-                <CircleMarker center={ant.coords} radius={12} pathOptions={{ color: '#fff', fillColor: ant.color, fillOpacity: 1, weight: 2 }}>
-                  <Popup><strong>{ant.nom}</strong><br/>Zone: {ant.zone}</Popup>
-                </CircleMarker>
-              </React.Fragment>
-            ))}
+            {showAntennes && ANTENNES.map((ant, i) => {
+              const enfantsDansZone = data.filter(d => {
+                const coords = getCoords(d.lieu);
+                const dist = Math.sqrt(Math.pow(coords[0] - ant.coords[0], 2) + Math.pow(coords[1] - ant.coords[1], 2)) * 111;
+                return dist < 12; // Rayon de 12 km
+              });
+              return (
+                <React.Fragment key={i}>
+                  <Circle center={ant.coords} radius={12000} pathOptions={{ color: ant.color, fillColor: ant.color, fillOpacity: 0.15, weight: 2 }} />
+                  <CircleMarker center={ant.coords} radius={12} pathOptions={{ color: '#fff', fillColor: ant.color, fillOpacity: 1, weight: 2 }}>
+                    <Popup>
+                      <div className="min-w-[220px]">
+                        <strong className="text-lg">📍 {ant.nom}</strong><br/>
+                        <span className="text-sm text-emerald-600">Zone: {ant.zone}</span>
+                        <div className="mt-2 pt-2 border-t border-slate-300">
+                          <p className="text-xs mb-1"><strong>Rayon de couverture : 12 km</strong></p>
+                          <p className="text-xs">Enfants dans cette zone : {enfantsDansZone.length}</p>
+                          {enfantsDansZone.length > 0 && (
+                            <p className="text-xs text-slate-600 mt-1">
+                              Distance moyenne depuis antenne : {(enfantsDansZone.reduce((sum, d) => {
+                                const coords = getCoords(d.lieu);
+                                const dist = Math.sqrt(Math.pow(coords[0] - ant.coords[0], 2) + Math.pow(coords[1] - ant.coords[1], 2)) * 111;
+                                return sum + dist;
+                              }, 0) / enfantsDansZone.length).toFixed(1)} km
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </Popup>
+                  </CircleMarker>
+                </React.Fragment>
+              );
+            })}
 
             {/* Établissements */}
-            {ETABLISSEMENTS.filter(e => activeTab === 'IME' ? e.type !== 'SESSAD' : e.type === 'SESSAD')
-              .map((etab, i) => (
+            {ETABLISSEMENTS.filter(e => {
+              if (activeTab === 'ALL') return true;
+              if (activeTab === 'IME') return e.type !== 'SESSAD';
+              return e.type === 'SESSAD';
+            }).map((etab, i) => {
+              const enfantsProches = data.filter(d => {
+                const coords = getCoords(d.lieu);
+                const dist = Math.sqrt(Math.pow(coords[0] - etab.coords[0], 2) + Math.pow(coords[1] - etab.coords[1], 2)) * 111; // Approximation km
+                return dist < 20;
+              });
+              return (
                 <CircleMarker key={i} center={etab.coords} radius={15} pathOptions={{ color: '#fff', fillColor: etab.color, fillOpacity: 1, weight: 3 }}>
-                  <Popup><strong>⭐ {etab.nom}</strong></Popup>
+                  <Popup>
+                    <div className="min-w-[200px]">
+                      <strong className="text-lg">⭐ {etab.nom}</strong><br/>
+                      <span className="text-sm text-slate-600">{etab.type}</span>
+                      {enfantsProches.length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-slate-300">
+                          <p className="text-xs">Enfants à moins de 20 km : {enfantsProches.length}</p>
+                        </div>
+                      )}
+                    </div>
+                  </Popup>
                 </CircleMarker>
-              ))}
+              );
+            })}
 
             {/* Enfants */}
             {aggregatedData.map((group, i) => {
               const avgKm = group.totalKm / group.items.length;
+              const colorCategory = avgKm < 20 ? '< 20 km (Vert)' : avgKm < 40 ? '20-40 km (Orange)' : avgKm < 60 ? '40-60 km (Orange foncé)' : '> 60 km (Rouge)';
               return (
                 <CircleMarker key={i} center={group.coords} radius={Math.sqrt(group.items.length) * 10 + 5}
                   pathOptions={{ color: '#fff', fillColor: getDistanceColor(avgKm), fillOpacity: 0.8, weight: 2 }}>
                   <Popup>
-                    <strong>{group.lieu}</strong><br/>
-                    {group.items.length} enfant(s)<br/>
-                    Distance moy: {avgKm.toFixed(1)} km<br/>
-                    {avgKm > 50 ? '⚠️ Zone critique' : avgKm > 30 ? '⚡ Distance élevée' : '✓ OK'}
+                    <div className="min-w-[250px]">
+                      <strong className="text-lg block mb-2">{group.lieu}</strong>
+                      <div className="border-t border-slate-300 pt-2 mt-2">
+                        <p className="text-sm mb-2">
+                          <strong>📍 {group.items.length} enfant(s) suivi(s)</strong>
+                        </p>
+                        <p className="text-sm mb-1">
+                          <strong>Distance moyenne : {avgKm.toFixed(1)} km</strong>
+                        </p>
+                        <p className="text-xs text-slate-600 mb-2">
+                          Catégorie : {colorCategory}
+                        </p>
+                        <div className="border-t border-slate-200 pt-2 mt-2">
+                          <p className="text-xs font-semibold mb-1">Détails par enfant :</p>
+                          {group.items.map((item, idx) => (
+                            <div key={idx} className="text-xs mb-1 pl-2 border-l-2 border-slate-300">
+                              <span className="font-medium">{item.handicap || 'N/A'}</span>
+                              {' → '}
+                              <span>{item.etablissement || item.ecole || 'N/A'}</span>
+                              {' : '}
+                              <span className="font-bold">{item.km?.toFixed(1) || '0'} km</span>
+                            </div>
+                          ))}
+                        </div>
+                        {avgKm > 50 && (
+                          <p className="text-xs text-red-600 font-semibold mt-2">⚠️ Zone critique : trajet {'>'} 50 km</p>
+                        )}
+                      </div>
+                    </div>
                   </Popup>
                 </CircleMarker>
               );
@@ -338,19 +414,103 @@ Fournis une recommandation stratégique concise (3-4 phrases) sur le maillage te
           </MapContainer>
         </div>
 
+        {/* Guide d'utilisation */}
+        <div className="bg-gradient-to-r from-blue-900/50 to-indigo-900/50 border border-blue-500/30 rounded-xl p-6 mb-6">
+          <h3 className="text-white font-bold text-lg mb-3 flex items-center gap-2">
+            <Lightbulb className="w-5 h-5 text-blue-400" /> Comment lire cette carte ?
+          </h3>
+          <div className="grid md:grid-cols-2 gap-4 text-sm text-slate-300">
+            <div>
+              <p className="font-semibold text-white mb-2">📍 Les cercles colorés (marqueurs) :</p>
+              <ul className="list-disc list-inside space-y-1 ml-2">
+                <li>Représentent les <strong>communes</strong> où vivent les enfants</li>
+                <li>La <strong>couleur</strong> indique la distance moyenne jusqu'à l'établissement</li>
+                <li><strong>Cliquez</strong> sur un cercle pour voir les détails : nombre d'enfants, distances individuelles</li>
+                <li>Plus le cercle est <strong>gros</strong>, plus il y a d'enfants dans cette commune</li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-semibold text-white mb-2">🎯 Les cercles en pointillés (zones) :</p>
+              <ul className="list-disc list-inside space-y-1 ml-2">
+                <li>Montrent la <strong>zone de couverture</strong> de chaque établissement (15 km de rayon)</li>
+                <li><strong>Rouge</strong> = IME, <strong>Vert</strong> = SESSAD/UA</li>
+                <li>Les enfants dans ces zones sont à moins de 15 km</li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-semibold text-white mb-2">⭐ Les étoiles :</p>
+              <ul className="list-disc list-inside space-y-1 ml-2">
+                <li>Représentent les <strong>établissements existants</strong> (IME, SESSAD)</li>
+                <li><strong>Cliquez</strong> pour voir le nom et le type</li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-semibold text-white mb-2">📍 Les cercles verts avec bordure blanche :</p>
+              <ul className="list-disc list-inside space-y-1 ml-2">
+                <li>Ce sont les <strong>antennes proposées</strong> (nouveaux sites)</li>
+                <li>Rayon de <strong>12 km</strong> de couverture</li>
+                <li><strong>Cliquez</strong> pour voir combien d'enfants seraient desservis</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
         {/* Legend */}
         <div className="bg-slate-800 rounded-xl p-6 mb-8">
-          <h3 className="text-white font-bold mb-4">📊 Légende</h3>
-          <div className="flex flex-wrap gap-6">
-            {[{ c: '#22c55e', l: '< 20 km' }, { c: '#f59e0b', l: '20-40 km' }, { c: '#f97316', l: '40-60 km' }, { c: '#dc2626', l: '> 60 km' }].map((i, idx) => (
-              <div key={idx} className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded-full" style={{ backgroundColor: i.c }} />
-                <span className="text-slate-300 text-sm">{i.l}</span>
+          <h3 className="text-white font-bold mb-4">📊 Légende des couleurs</h3>
+          <div className="space-y-3">
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-slate-400 text-sm mb-2 font-semibold">Couleurs des marqueurs (distance moyenne) :</p>
+                <div className="space-y-2">
+                  {[
+                    { c: '#22c55e', l: '< 20 km', desc: 'Distance acceptable (vert)' },
+                    { c: '#f59e0b', l: '20-40 km', desc: 'Distance modérée (orange)' },
+                    { c: '#f97316', l: '40-60 km', desc: 'Distance élevée (orange foncé)' },
+                    { c: '#dc2626', l: '> 60 km', desc: 'Distance critique (rouge)' }
+                  ].map((i, idx) => (
+                    <div key={idx} className="flex items-center gap-3">
+                      <div className="w-5 h-5 rounded-full flex-shrink-0" style={{ backgroundColor: i.c }} />
+                      <div>
+                        <span className="text-white text-sm font-medium">{i.l}</span>
+                        <span className="text-slate-400 text-xs ml-2">({i.desc})</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded-full bg-emerald-500 border-2 border-white" />
-              <span className="text-slate-300 text-sm">Antenne proposée</span>
+              <div>
+                <p className="text-slate-400 text-sm mb-2 font-semibold">Autres éléments :</p>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-5 h-5 rounded-full bg-emerald-500 border-2 border-white flex-shrink-0" />
+                    <div>
+                      <span className="text-white text-sm font-medium">Antenne proposée</span>
+                      <span className="text-slate-400 text-xs ml-2">(nouveau site à créer)</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-5 h-5 rounded-full bg-red-600 border-2 border-white flex-shrink-0" />
+                    <div>
+                      <span className="text-white text-sm font-medium">Établissement IME</span>
+                      <span className="text-slate-400 text-xs ml-2">(existant)</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-5 h-5 rounded-full bg-green-600 border-2 border-white flex-shrink-0" />
+                    <div>
+                      <span className="text-white text-sm font-medium">Établissement SESSAD/UA</span>
+                      <span className="text-slate-400 text-xs ml-2">(existant)</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="pt-3 border-t border-slate-700">
+              <p className="text-slate-400 text-xs">
+                💡 <strong>Astuce :</strong> Cliquez sur n'importe quel élément de la carte pour voir les détails complets, 
+                y compris les distances individuelles qui justifient la couleur affichée.
+              </p>
             </div>
           </div>
         </div>
