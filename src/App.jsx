@@ -874,7 +874,123 @@ function Dashboard({ onLogout }) {
     };
   }, [stats, optimizedData, hyp, iaHypothesis]);
 
-  // Chatbot - Envoi de message avec contexte de données (placé après stats et economicAnalysis)
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // CONTEXTE JSON GLOBAL - Toujours à jour pour le chatbot
+  // ═══════════════════════════════════════════════════════════════════════════════
+  const globalDataContext = useMemo(() => {
+    // Calculer les stats pour chaque hypothèse
+    const calcHypStats = (hypKey) => {
+      const hypItems = hypKey === 'current' ? [] : (hypKey === 'hyp3' && iaHypothesis ? iaHypothesis.items : HYPOTHESES[hypKey]?.items || []);
+      const optimized = data.map(d => {
+        const coords = COMMUNES_COORDS[d.lieu.toUpperCase()];
+        if (!coords) return d.km;
+        let minDist = d.km;
+        hypItems.forEach(ant => {
+          const dist = haversineDistance(coords[0], coords[1], ant.coords[0], ant.coords[1]);
+          if (dist < minDist) minDist = dist;
+        });
+        return minDist;
+      });
+      const proches = optimized.filter(d => d < 15).length;
+      const aberrants = optimized.filter(d => d >= 35).length;
+      const critiques = optimized.filter(d => d >= 50).length;
+      const totalKm = optimized.reduce((s, d) => s + d, 0);
+      const kmJour = Math.round(totalKm);
+      const kmAn = kmJour * 2 * COST_CONSTANTS.JOURS_TRAVAIL_AN;
+      return {
+        couverture: Math.round((proches / data.length) * 100),
+        distMoy: Number((totalKm / data.length).toFixed(1)),
+        aberrants,
+        critiques,
+        proches,
+        kmJour,
+        kmAn
+      };
+    };
+    
+    const etatActuel = calcHypStats('current');
+    const hyp1Stats = calcHypStats('hyp1');
+    const hyp2Stats = calcHypStats('hyp2');
+    const hyp3Stats = iaHypothesis ? calcHypStats('hyp3') : null;
+    
+    // Calcul économique pour chaque hypothèse
+    const calcEcoForHyp = (hypStats, hypKey) => {
+      if (!hypStats || hypKey === 'current') return null;
+      const kmEconomises = etatActuel.kmAn - hypStats.kmAn;
+      const ratioReduction = etatActuel.kmAn > 0 ? kmEconomises / etatActuel.kmAn : 0;
+      const economieBrute = Math.round(800000 * ratioReduction);
+      const nbAntennes = hypKey === 'hyp3' && iaHypothesis ? iaHypothesis.items?.length : HYPOTHESES[hypKey]?.items?.length || 0;
+      const loyerAn = nbAntennes * COST_CONSTANTS.SURFACE_ANTENNE * COST_CONSTANTS.LOYER_ANTENNE_M2 * 12;
+      const investissement = nbAntennes * COST_CONSTANTS.AMENAGEMENT;
+      const economieNette = economieBrute - loyerAn;
+      const roi = investissement > 0 && economieNette > 0 ? Math.ceil(investissement / (economieNette / 12)) : 0;
+      return {
+        kmEconomises,
+        economieBrute,
+        nbAntennes,
+        investissement,
+        loyerAn: Math.round(loyerAn),
+        economieNette,
+        equivalentPostes: Math.floor(economieNette / COST_CONSTANTS.SALAIRE_EDUCATEUR),
+        roiMois: roi
+      };
+    };
+
+    // Top communes
+    const topCommunes = aggregatedData.slice(0, 20).map(g => ({
+      commune: g.lieu,
+      enfants: g.items.length,
+      distMoy: Number((g.totalKm / g.items.length).toFixed(1))
+    }));
+    
+    // Zones blanches
+    const zonesBlanches = aggregatedData.filter(g => (g.totalKm / g.items.length) > 35).map(g => g.lieu);
+
+    return {
+      meta: {
+        source: "VyV3 Bourgogne - File active",
+        dateExtraction: new Date().toISOString().split('T')[0],
+        totalEnfants: data.length,
+        totalCommunes: aggregatedData.length
+      },
+      budgetTransport: {
+        total: 800000,
+        imeChâtillon: { coutParEnfant: 2955, total: 82740 },
+        cmeMontbard: { coutParEnfant: 4200, total: 126000 },
+        imeSemur: { coutParEnfant: 12232, total: 489280 },
+        sessad: { total: 100000 }
+      },
+      etatActuel: {
+        enfants: { ime: IME_DATA.length, sessad: SESSAD_DATA.length, total: data.length },
+        ...etatActuel
+      },
+      hypotheses: {
+        hyp1: {
+          nom: HYPOTHESES.hyp1.name,
+          antennes: HYPOTHESES.hyp1.items.map(a => a.nom),
+          ...hyp1Stats,
+          economie: calcEcoForHyp(hyp1Stats, 'hyp1')
+        },
+        hyp2: {
+          nom: HYPOTHESES.hyp2.name,
+          antennes: HYPOTHESES.hyp2.items.map(a => a.nom),
+          ...hyp2Stats,
+          economie: calcEcoForHyp(hyp2Stats, 'hyp2')
+        },
+        hyp3: hyp3Stats ? {
+          nom: iaHypothesis.name,
+          antennes: iaHypothesis.items.map(a => a.nom),
+          ...hyp3Stats,
+          economie: calcEcoForHyp(hyp3Stats, 'hyp3')
+        } : null
+      },
+      topCommunes,
+      zonesBlanches,
+      hypotheseSelectionnee: hyp
+    };
+  }, [data, aggregatedData, iaHypothesis, hyp]);
+
+  // Chatbot - Envoi de message avec contexte JSON global
   const sendChatMessage = useCallback(async () => {
     if (!chatInput.trim() || chatLoading) return;
     
@@ -884,134 +1000,68 @@ function Dashboard({ onLogout }) {
     setChatLoading(true);
     
     try {
-      // Calculer les stats pour chaque hypothèse
-      const calcHypStats = (hypKey) => {
-        const hypItems = hypKey === 'current' ? [] : (hypKey === 'hyp3' && iaHypothesis ? iaHypothesis.items : HYPOTHESES[hypKey]?.items || []);
-        const optimized = data.map(d => {
-          const coords = COMMUNES_COORDS[d.lieu.toUpperCase()];
-          if (!coords) return d.km;
-          let minDist = d.km;
-          hypItems.forEach(ant => {
-            const dist = haversineDistance(coords[0], coords[1], ant.coords[0], ant.coords[1]);
-            if (dist < minDist) minDist = dist;
-          });
-          return minDist;
-        });
-        const proches = optimized.filter(d => d < 15).length;
-        const aberrants = optimized.filter(d => d >= 35).length;
-        const critiques = optimized.filter(d => d >= 50).length;
-        const totalKm = optimized.reduce((s, d) => s + d, 0);
-        return {
-          couverture: ((proches / data.length) * 100).toFixed(0),
-          distMoy: (totalKm / data.length).toFixed(1),
-          aberrants,
-          critiques,
-          proches,
-          kmJour: Math.round(totalKm)
-        };
-      };
-      
-      const currentStats = calcHypStats('current');
-      const hyp1Stats = calcHypStats('hyp1');
-      const hyp2Stats = calcHypStats('hyp2');
-      const hyp3Stats = iaHypothesis ? calcHypStats('hyp3') : null;
-      
-      // Top communes par nombre d'enfants
-      const topCommunes = aggregatedData.slice(0, 15).map(g => ({
-        commune: g.lieu,
-        enfants: g.items.length,
-        distMoy: (g.totalKm / g.items.length).toFixed(1)
-      }));
-      
-      // Zones blanches (>35km)
-      const zonesBlanches = aggregatedData.filter(g => (g.totalKm / g.items.length) > 35).map(g => g.lieu);
+      const ctx = globalDataContext;
+      const hyp3 = ctx.hypotheses.hyp3;
       
       const dataContext = `
-DONNEES VYV3 COTE-D'OR (Source: données internes, ${data.length} enfants anonymisés)
+DONNEES VYV3 COTE-D'OR (Source: ${ctx.meta.source}, ${ctx.meta.totalEnfants} enfants anonymises)
 
 ETAT ACTUEL:
-- ${data.length} enfants suivis (IME: ${IME_DATA.length}, SESSAD: ${SESSAD_DATA.length})
-- ${aggregatedData.length} communes distinctes
-- Distance moyenne domicile-établissement: ${currentStats.distMoy} km
-- Couverture (<15km): ${currentStats.couverture}% (${currentStats.proches} enfants)
-- Trajets aberrants (>35km): ${currentStats.aberrants} enfants
-- Trajets critiques (>50km): ${currentStats.critiques} enfants
-- Kilométrage total/jour: ${currentStats.kmJour} km
+- ${ctx.etatActuel.enfants.total} enfants suivis (IME: ${ctx.etatActuel.enfants.ime}, SESSAD: ${ctx.etatActuel.enfants.sessad})
+- ${ctx.meta.totalCommunes} communes distinctes
+- Distance moyenne: ${ctx.etatActuel.distMoy} km
+- Couverture (<15km): ${ctx.etatActuel.couverture}% (${ctx.etatActuel.proches} enfants)
+- Trajets aberrants (>35km): ${ctx.etatActuel.aberrants} enfants
+- Trajets critiques (>50km): ${ctx.etatActuel.critiques} enfants
+- Kilometrage annuel: ${ctx.etatActuel.kmAn.toLocaleString()} km
 
-ETABLISSEMENTS EXISTANTS:
-- IME Châtillon-sur-Seine (nord)
-- IME Semur-en-Auxois (centre)
-- CME Montbard (centre-nord)
+BUDGET TRANSPORT (800 000 EUR/an):
+- IME Chatillon: ${ctx.budgetTransport.imeChâtillon.coutParEnfant} EUR/enfant
+- CME Montbard: ${ctx.budgetTransport.cmeMontbard.coutParEnfant} EUR/enfant  
+- IME Semur: ${ctx.budgetTransport.imeSemur.coutParEnfant} EUR/enfant (ALERTE: 4x plus cher)
+- SESSAD: ~${ctx.budgetTransport.sessad.total.toLocaleString()} EUR
 
-BUDGET TRANSPORT (Source PDF VyV3):
-- Total: 800 000 EUR/an
-- IME Châtillon: 2 955 EUR/enfant = 82 740 EUR
-- CME Montbard: 4 200 EUR/enfant = 126 000 EUR
-- IME Semur: 12 232 EUR/enfant = 489 280 EUR (coût 4x supérieur)
-- SESSAD: ~100 000 EUR
+HYPOTHESE 1 (${ctx.hypotheses.hyp1.nom}):
+- Antennes: ${ctx.hypotheses.hyp1.antennes.join(', ')}
+- Couverture: ${ctx.hypotheses.hyp1.couverture}% | Distance moy: ${ctx.hypotheses.hyp1.distMoy} km
+- Aberrants: ${ctx.hypotheses.hyp1.aberrants} | Km/an: ${ctx.hypotheses.hyp1.kmAn.toLocaleString()}
+- Economie nette: ${ctx.hypotheses.hyp1.economie?.economieNette.toLocaleString()} EUR/an
+- ROI: ${ctx.hypotheses.hyp1.economie?.roiMois || 0} mois | Equiv: ${ctx.hypotheses.hyp1.economie?.equivalentPostes} postes
 
-HYPOTHESE 1 (${HYPOTHESES.hyp1.name}):
-- Antennes: ${HYPOTHESES.hyp1.items.map(a => a.nom).join(', ')}
-- Couverture projetée: ${hyp1Stats.couverture}%
-- Distance moyenne: ${hyp1Stats.distMoy} km
-- Trajets aberrants: ${hyp1Stats.aberrants}
+HYPOTHESE 2 (${ctx.hypotheses.hyp2.nom}):
+- Antennes: ${ctx.hypotheses.hyp2.antennes.join(', ')}
+- Couverture: ${ctx.hypotheses.hyp2.couverture}% | Distance moy: ${ctx.hypotheses.hyp2.distMoy} km
+- Aberrants: ${ctx.hypotheses.hyp2.aberrants} | Km/an: ${ctx.hypotheses.hyp2.kmAn.toLocaleString()}
+- Economie nette: ${ctx.hypotheses.hyp2.economie?.economieNette.toLocaleString()} EUR/an
+- ROI: ${ctx.hypotheses.hyp2.economie?.roiMois || 0} mois | Equiv: ${ctx.hypotheses.hyp2.economie?.equivalentPostes} postes
 
-HYPOTHESE 2 (${HYPOTHESES.hyp2.name}):
-- Antennes: ${HYPOTHESES.hyp2.items.map(a => a.nom).join(', ')}
-- Couverture projetée: ${hyp2Stats.couverture}%
-- Distance moyenne: ${hyp2Stats.distMoy} km
-- Trajets aberrants: ${hyp2Stats.aberrants}
+${hyp3 ? `HYPOTHESE IA (${hyp3.nom}):
+- Antennes: ${hyp3.antennes.join(', ')}
+- Couverture: ${hyp3.couverture}% | Distance moy: ${hyp3.distMoy} km
+- Aberrants: ${hyp3.aberrants} | Km/an: ${hyp3.kmAn.toLocaleString()}
+- Economie nette: ${hyp3.economie?.economieNette.toLocaleString()} EUR/an
+- ROI: ${hyp3.economie?.roiMois || 0} mois | Equiv: ${hyp3.economie?.equivalentPostes} postes` : 'HYPOTHESE IA: Non generee'}
 
-${hyp3Stats ? `HYPOTHESE IA (${iaHypothesis.name}):
-- Antennes: ${iaHypothesis.items.map(a => a.nom).join(', ')}
-- Couverture projetée: ${hyp3Stats.couverture}%
-- Distance moyenne: ${hyp3Stats.distMoy} km
-- Trajets aberrants: ${hyp3Stats.aberrants}` : 'HYPOTHESE IA: Non générée'}
+TOP 20 COMMUNES:
+${ctx.topCommunes.map(c => `- ${c.commune}: ${c.enfants} enfants, ${c.distMoy} km`).join('\n')}
 
-TOP 15 COMMUNES (par nb enfants):
-${topCommunes.map(c => `- ${c.commune}: ${c.enfants} enfants, ${c.distMoy} km moy`).join('\n')}
+ZONES BLANCHES (>35km): ${ctx.zonesBlanches.length > 0 ? ctx.zonesBlanches.join(', ') : 'Aucune'}
 
-ZONES BLANCHES (>35km): ${zonesBlanches.length > 0 ? zonesBlanches.join(', ') : 'Aucune'}
-
-ANALYSE ECONOMIQUE HYPOTHESE SELECTIONNEE (${hyp === 'current' ? 'Etat actuel' : hyp === 'hyp3' ? 'Hypothese IA' : `Hypothese ${hyp.replace('hyp', '')}`}):
-- Km annuels etat actuel: ${String(economicAnalysis.kmAnActuel)} km
-- Km annuels optimises: ${String(economicAnalysis.kmAnOptimise)} km
-- Km economises/an: ${String(economicAnalysis.kmEconomisesAn)} km
-- Cout transport actuel (budget reel): 800000 EUR/an
-- Cout transport optimise: ${String(economicAnalysis.coutTransportOptimise)} EUR/an
-- Economie transport brute: ${String(economicAnalysis.economieTransport)} EUR/an
-- Nb antennes a creer: ${String(economicAnalysis.nbAntennes)}
-- Investissement amenagement: ${String(economicAnalysis.investAmenagement)} EUR (one-shot)
-- Loyer annuel antennes: ${String(economicAnalysis.coutLoyerAn)} EUR/an
-- ECONOMIE NETTE (apres loyers): ${String(economicAnalysis.economieNette)} EUR/an
-- Equivalent postes educateurs: ${String(economicAnalysis.equivalentEducateurs)} postes
-- ROI: ${economicAnalysis.investAmenagement > 0 && economicAnalysis.economieNette > 0 ? Math.ceil(economicAnalysis.investAmenagement / (economicAnalysis.economieNette / 12)) + ' mois' : 'Immediat'}
-- Reduction trajets penibles (>45min): ${String(economicAnalysis.reductionPenibilite)} enfants
+HYPOTHESE SELECTIONNEE: ${ctx.hypotheseSelectionnee === 'current' ? 'Etat actuel' : ctx.hypotheseSelectionnee === 'hyp3' ? 'Hypothese IA' : `Hypothese ${ctx.hypotheseSelectionnee.replace('hyp', '')}`}
 `.trim();
       
       const prompt = `Tu es un Partner McKinsey expert en transformation territoriale medico-sociale.
 
-REGLES DE REPONSE:
-- Maximum 120 mots, structure claire
-- JAMAIS d'emoji, JAMAIS de ##, JAMAIS de formulation vague
-- Utilise **texte** pour mettre en gras les chiffres cles et conclusions
-- Base UNIQUEMENT sur les donnees ci-dessous, sinon dis "Non disponible"
-- Chaque reponse doit contenir:
-  1. Un constat factuel chiffre
-  2. Un insight strategique non evident
-  3. Une recommandation actionnable OU une question pour affiner
-
-APPROCHE DECISIONNELLE:
-- Compare toujours avec un benchmark ou une alternative
-- Identifie les leviers d'action prioritaires
-- Quantifie l'impact quand possible
-- Challenge les hypotheses implicites
+REGLES:
+- Max 100 mots, structure claire
+- JAMAIS d'emoji, JAMAIS de ## ou ###
+- Utilise **texte** pour les chiffres cles
+- Base-toi UNIQUEMENT sur les donnees fournies
+- Structure: Constat factuel > Insight non evident > Recommandation ou question strategique
 
 ${dataContext}
 
-QUESTION: "${userMessage}"
-
-Structure ta reponse: Constat > Insight > Recommandation/Question.`;
+QUESTION: "${userMessage}"`;
       
       const response = await callClaudeAPI(prompt);
       setChatMessages(prev => [...prev, { role: 'assistant', content: response }]);
@@ -1020,7 +1070,7 @@ Structure ta reponse: Constat > Insight > Recommandation/Question.`;
     } finally {
       setChatLoading(false);
     }
-  }, [chatInput, chatLoading, stats, coverage, hyp, economicAnalysis, data, aggregatedData, iaHypothesis]);
+  }, [chatInput, chatLoading, globalDataContext]);
 
   // Génération de l'analyse IA globale
   const generateIAAnalysis = useCallback(async () => {
