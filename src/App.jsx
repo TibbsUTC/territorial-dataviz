@@ -197,22 +197,76 @@ const ETABLISSEMENTS = [
   { nom: "CME Montbard", coords: [47.6250, 4.3333], type: "CME", color: "#b91c1c" },
 ];
 
-// Hypothèses de nouvelles antennes (labels simples)
+// ═══════════════════════════════════════════════════════════════════════════════
+// HYPOTHÈSES DE TRANSFORMATION TERRITORIALE
+// Source : Analyse stratégique VyV3 - Maillage de proximité
+// ═══════════════════════════════════════════════════════════════════════════════
+
 const HYPOTHESES = {
-  current: { items: [] },
+  current: { 
+    name: "État actuel",
+    description: "3 pôles historiques uniquement (Châtillon, Semur, Montbard)",
+    items: [] 
+  },
   hyp1: {
+    name: "Hypothèse 1 : Maillage Proximité",
+    description: "3 antennes pour verrouiller les bassins isolés",
     items: [
-      { nom: "Saulieu", coords: [47.2833, 4.2333], range: 15 },
-      { nom: "Venarey", coords: [47.5417, 4.4583], range: 15 },
-      { nom: "Recey", coords: [47.7833, 4.8500], range: 15 },
+      { 
+        nom: "Antenne SUD (Saulieu)", 
+        coords: [47.2833, 4.2333], // Coordonnées GPS Saulieu
+        range: 15,
+        zone: "SUD",
+        justification: "Capter Liernais, Montlay, Saulieu - isolement Morvan"
+      },
+      { 
+        nom: "Antenne EST (Venarey)", 
+        coords: [47.5417, 4.4583], // Coordonnées GPS Venarey-les-Laumes
+        range: 15,
+        zone: "EST",
+        justification: "Nœud ferroviaire - pivot pour Vitteaux, Darcey, Alise"
+      },
+      { 
+        nom: "Antenne NORD-EST (Recey)", 
+        coords: [47.7833, 4.8500], // Coordonnées GPS Recey-sur-Ource
+        range: 15,
+        zone: "NORD-EST",
+        justification: "Secteur Aignay/Recey/Leuglay trop loin de Châtillon"
+      },
     ]
   },
   hyp2: {
+    name: "Hypothèse 2 : Conquête & Verrouillage",
+    description: "4 antennes pour conquérir l'Est et verrouiller l'Ouest",
     items: [
-      { nom: "Saulieu", coords: [47.2833, 4.2333], range: 15 },
-      { nom: "Époisses", coords: [47.5000, 4.1667], range: 15 },
-      { nom: "Is-sur-Tille", coords: [47.5167, 5.1000], range: 15 },
-      { nom: "Selongey", coords: [47.5833, 5.1833], range: 12 },
+      { 
+        nom: "Antenne SUD (Saulieu)", 
+        coords: [47.2833, 4.2333],
+        range: 15,
+        zone: "SUD",
+        justification: "Verrouillage Sud - isolement Morvan"
+      },
+      { 
+        nom: "Antenne OUEST (Époisses)", 
+        coords: [47.5000, 4.1667], // Coordonnées GPS Époisses
+        range: 15,
+        zone: "OUEST",
+        justification: "Zone blanche Semur-Avallon (Rouvray, Guillon, Arcy)"
+      },
+      { 
+        nom: "Antenne EST (Is-sur-Tille)", 
+        coords: [47.5167, 5.1000], // Coordonnées GPS Is-sur-Tille
+        range: 15,
+        zone: "EST",
+        justification: "Conquête zone périurbaine Dijon - flux naturel Est"
+      },
+      { 
+        nom: "Antenne NE (Selongey)", 
+        coords: [47.5833, 5.1833], // Coordonnées GPS Selongey
+        range: 12,
+        zone: "NORD-EST",
+        justification: "Renforcement conquête Nord-Est vers Dijon"
+      },
     ]
   }
 };
@@ -820,11 +874,13 @@ export default function App() {
               <p className="text-center text-xs text-slate-400 mt-4">Survolez pour voir le détail de chaque commune</p>
             </div>
 
-            {/* Impact hypothèses */}
+            {/* Impact hypothèses - Comparaison auditable */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-              <h3 className="font-bold text-slate-800 mb-4">Impact des hypothèses sur la couverture</h3>
+              <h3 className="font-bold text-slate-800 mb-2">Comparaison des scénarios</h3>
+              <p className="text-sm text-slate-500 mb-4">Cliquez sur un scénario pour voir son impact en temps réel sur tous les indicateurs</p>
               <div className="grid grid-cols-3 gap-4">
                 {Object.entries(HYPOTHESES).map(([key, h]) => {
+                  // Calcul couverture pour cette hypothèse
                   const hypCoverage = data.filter(d => {
                     const coords = getCoords(d.lieu);
                     if (!coords) return false;
@@ -832,44 +888,94 @@ export default function App() {
                     if (byEtab) return true;
                     return h.items.some(ant => haversineDistance(coords[0], coords[1], ant.coords[0], ant.coords[1]) < ant.range);
                   }).length;
+                  // Calcul km économisés
+                  const optimizedForHyp = data.map(d => {
+                    const coords = getCoords(d.lieu);
+                    if (!coords) return d.km;
+                    let minDist = d.km;
+                    h.items.forEach(ant => {
+                      const dist = haversineDistance(coords[0], coords[1], ant.coords[0], ant.coords[1]);
+                      if (dist < minDist) minDist = dist;
+                    });
+                    return minDist;
+                  });
+                  const totalKmHyp = optimizedForHyp.reduce((s, km) => s + km, 0);
+                  const totalKmActuel = data.reduce((s, d) => s + d.km, 0);
+                  const kmSaved = Math.round(totalKmActuel - totalKmHyp);
+                  
                   const pct = ((hypCoverage / data.length) * 100).toFixed(0);
                   const isActive = hyp === key;
                   return (
-                    <div key={key} className={`p-4 rounded-xl border-2 ${isActive ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}`}>
-                      <p className="text-sm font-medium text-slate-600 mb-2">
-                        {key === 'current' ? 'État actuel' : key === 'hyp1' ? 'Hypothèse 1' : 'Hypothèse 2'}
-                      </p>
-                      <p className="text-4xl font-bold text-slate-800">{pct}%</p>
+                    <div key={key} 
+                      onClick={() => setHyp(key)}
+                      className={`p-4 rounded-xl border-2 cursor-pointer transition-all hover:shadow-md ${
+                        isActive ? 'border-blue-500 bg-blue-50 shadow-md' : 'border-slate-200 hover:border-slate-300'
+                      }`}>
+                      <p className="text-sm font-bold text-slate-800 mb-1">{h.name}</p>
+                      <p className="text-xs text-slate-500 mb-3">{h.description}</p>
+                      <p className="text-3xl font-bold text-slate-800">{pct}%</p>
                       <p className="text-sm text-slate-500">{hypCoverage}/{data.length} enfants &lt;15km</p>
                       {h.items.length > 0 && (
-                        <p className="text-xs text-emerald-600 mt-2">+{h.items.length} antennes</p>
+                        <div className="mt-3 pt-3 border-t border-slate-200">
+                          <p className="text-xs text-emerald-600 font-medium">+{h.items.length} antennes</p>
+                          <p className="text-xs text-emerald-600">−{kmSaved} km/jour économisés</p>
+                        </div>
                       )}
+                      {isActive && <p className="text-xs text-blue-600 mt-2 font-medium">✓ Scénario actif</p>}
                     </div>
                   );
                 })}
               </div>
             </div>
 
-            {/* Top aberrations détaillées */}
-            <div className="bg-red-50 rounded-xl border border-red-200 p-6">
-              <h3 className="font-bold text-red-800 mb-4 flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5" /> 
-                Détail des flux aberrants ({stats.critiques} trajets &gt;50km)
-            </h3>
-              <div className="grid grid-cols-2 gap-4">
-                {data.filter(d => d.km > 50).sort((a, b) => b.km - a.km).map((d, i) => (
-                  <div key={i} className="bg-white rounded-lg p-3 border border-red-200">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-bold text-slate-800">{d.lieu}</p>
-                        <p className="text-sm text-slate-500">→ {d.etablissement || d.ecole}</p>
-                      </div>
-                      <span className="text-2xl font-bold text-red-600">{d.km} km</span>
+            {/* Détail des antennes par hypothèse */}
+            {hyp !== 'current' && (
+              <div className="bg-slate-50 rounded-xl border border-slate-200 p-6">
+                <h3 className="font-bold text-slate-800 mb-4">{HYPOTHESES[hyp].name} - Détail des antennes</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {HYPOTHESES[hyp].items.map((ant, i) => (
+                    <div key={i} className={`bg-white rounded-lg p-4 border-l-4 ${hyp === 'hyp1' ? 'border-emerald-500' : 'border-blue-500'}`}>
+                      <p className="font-bold text-slate-800">{ant.nom}</p>
+                      <p className="text-xs text-slate-500 mb-2">Zone {ant.zone} • Rayon {ant.range}km</p>
+                      <p className="text-xs text-slate-600 italic">{ant.justification}</p>
+                      <p className="text-xs text-slate-400 mt-2">📍 [{ant.coords[0]}, {ant.coords[1]}]</p>
                     </div>
-                    <p className="text-xs text-slate-400 mt-1">{d.handicap || 'Non spécifié'} • {d.source}</p>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
+            )}
+
+            {/* Top aberrations détaillées */}
+            <div className={`rounded-xl border p-6 ${stats.critiques > 0 ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
+              <h3 className={`font-bold mb-4 flex items-center gap-2 ${stats.critiques > 0 ? 'text-red-800' : 'text-green-800'}`}>
+                <AlertTriangle className="w-5 h-5" /> 
+                {stats.critiques > 0 
+                  ? `Trajets restants > 50km (${stats.critiques})` 
+                  : '✓ Tous les trajets critiques éliminés !'}
+            </h3>
+              {stats.critiques > 0 ? (
+                <div className="grid grid-cols-2 gap-4">
+                  {optimizedData.filter(d => d.optimizedKm > 50).sort((a, b) => b.optimizedKm - a.optimizedKm).map((d, i) => (
+                    <div key={i} className="bg-white rounded-lg p-3 border border-red-200">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-bold text-slate-800">{d.lieu}</p>
+                          <p className="text-sm text-slate-500">→ {d.etablissement || d.ecole}</p>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-2xl font-bold text-red-600">{d.optimizedKm} km</span>
+                          {d.optimizedKm < d.km && (
+                            <p className="text-xs text-emerald-600">était {d.km} km</p>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-1">{d.handicap || 'Non spécifié'} • {d.source}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-green-700">🎉 L'hypothèse sélectionnée ramène tous les trajets sous 50km.</p>
+              )}
             </div>
           </div>
         ) : (
