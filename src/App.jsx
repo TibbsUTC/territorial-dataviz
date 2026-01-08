@@ -312,48 +312,60 @@ export default function App() {
     return Object.values(grouped);
   }, [data]);
 
-  // Calcul de couverture (enfants à moins de 15km d'un établissement OU d'une antenne hypothèse)
-  const coverage = useMemo(() => {
+  // Données optimisées selon hypothèse (distance = min entre actuel et nouvelle antenne)
+  const optimizedData = useMemo(() => {
     const hypItems = HYPOTHESES[hyp].items;
-    const covered = data.filter(d => {
+    return data.map(d => {
       const coords = getCoords(d.lieu);
-      if (!coords) return false;
-      // Couvert par établissement existant ?
-      const byEtab = ETABLISSEMENTS.some(etab => {
-        const dist = haversineDistance(coords[0], coords[1], etab.coords[0], etab.coords[1]);
-        return dist < 15;
+      if (!coords) return { ...d, optimizedKm: d.km };
+      
+      // Distance actuelle
+      let minDist = d.km;
+      
+      // Vérifier si une antenne hypothèse est plus proche
+      hypItems.forEach(ant => {
+        const distToAnt = haversineDistance(coords[0], coords[1], ant.coords[0], ant.coords[1]);
+        if (distToAnt < minDist) {
+          minDist = Math.round(distToAnt * 10) / 10;
+        }
       });
-      if (byEtab) return true;
-      // Couvert par antenne hypothèse ?
-      return hypItems.some(ant => {
-        const dist = haversineDistance(coords[0], coords[1], ant.coords[0], ant.coords[1]);
-        return dist < ant.range;
-      });
+      
+      return { ...d, optimizedKm: minDist };
     });
-    return {
-      covered: covered.length,
-      total: data.length,
-      percentage: data.length > 0 ? ((covered.length / data.length) * 100).toFixed(0) : 0
-    };
   }, [data, hyp]);
 
-  // Statistiques enrichies
+  // Calcul de couverture (enfants à moins de 15km)
+  const coverage = useMemo(() => {
+    const covered = optimizedData.filter(d => d.optimizedKm < 15).length;
+    return {
+      covered,
+      total: optimizedData.length,
+      percentage: optimizedData.length > 0 ? ((covered / optimizedData.length) * 100).toFixed(0) : 0
+    };
+  }, [optimizedData]);
+
+  // Statistiques enrichies - TOUTES basées sur distances optimisées
   const stats = useMemo(() => {
-    const aberrants = data.filter(d => d.km > 35).length; // Flux aberrants > 35km
-    const critiques = data.filter(d => d.km > 50).length; // Critiques > 50km
-    const proches = data.filter(d => d.km < 15).length;
-    const totalKm = data.reduce((s, d) => s + (d.km || 0), 0);
+    const aberrants = optimizedData.filter(d => d.optimizedKm > 35).length;
+    const critiques = optimizedData.filter(d => d.optimizedKm > 50).length;
+    const proches = optimizedData.filter(d => d.optimizedKm < 15).length;
+    const totalKm = optimizedData.reduce((s, d) => s + (d.optimizedKm || 0), 0);
+    
+    // Comparaison avec état actuel
+    const currentTotalKm = data.reduce((s, d) => s + (d.km || 0), 0);
+    const kmSaved = Math.round(currentTotalKm - totalKm);
     
     return {
-      total: data.length,
-      avgKm: data.length > 0 ? (totalKm / data.length).toFixed(1) : 0,
-      aberrants, // Trajets > 35km (aberrants)
-      critiques, // Trajets > 50km (critiques)
+      total: optimizedData.length,
+      avgKm: optimizedData.length > 0 ? (totalKm / optimizedData.length).toFixed(1) : 0,
+      aberrants,
+      critiques,
       proches,
       communes: aggregatedData.length,
-      kmTotal: Math.round(totalKm), // Total km parcourus
+      kmTotal: Math.round(totalKm),
+      kmSaved: kmSaved > 0 ? kmSaved : 0, // km économisés vs état actuel
     };
-  }, [data, aggregatedData]);
+  }, [optimizedData, data, aggregatedData]);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -447,7 +459,7 @@ export default function App() {
         {/* KPIs */}
         <div className="grid grid-cols-6 gap-4 mb-6">
           <KPICard icon={Users} label="Enfants suivis" value={stats.total} subValue={`${stats.communes} communes`} color="border-blue-500" />
-          <KPICard icon={MapPin} label="Distance moyenne" value={`${stats.avgKm} km`} subValue={`${stats.kmTotal} km/jour total`} color="border-amber-500" />
+          <KPICard icon={MapPin} label="Distance moyenne" value={`${stats.avgKm} km`} subValue={stats.kmSaved > 0 ? `🎯 -${stats.kmSaved} km/jour` : `${stats.kmTotal} km/jour`} color="border-amber-500" />
           <KPICard icon={Target} label="Couverture" value={`${coverage.percentage}%`} subValue={`${coverage.covered}/${coverage.total} < 15km`} color="border-emerald-500" />
           <KPICard icon={AlertTriangle} label="Flux aberrants" value={stats.aberrants} subValue="> 35 km aller" color="border-orange-500" />
           <KPICard icon={AlertTriangle} label="Trajets critiques" value={stats.critiques} subValue="> 50 km aller" color="border-red-500" />
@@ -629,29 +641,35 @@ export default function App() {
               </div>
 
               {/* Top Flux Aberrants */}
-              <div className="bg-red-50 rounded-xl shadow-sm border border-red-200 p-4">
-                <h3 className="font-bold text-red-800 mb-3 flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4" /> Top Flux Aberrants
-            </h3>
+              <div className={`rounded-xl shadow-sm border p-4 ${stats.critiques > 0 ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
+                <h3 className={`font-bold mb-3 flex items-center gap-2 ${stats.critiques > 0 ? 'text-red-800' : 'text-green-800'}`}>
+                  <AlertTriangle className="w-4 h-4" /> 
+                  {stats.critiques > 0 ? 'Top Flux Aberrants' : '✓ Aucun trajet critique'}
+                </h3>
                 <div className="space-y-2 max-h-[180px] overflow-y-auto">
-                  {data.filter(d => d.km > 50).sort((a, b) => b.km - a.km).slice(0, 8).map((d, i) => (
+                  {optimizedData.filter(d => d.optimizedKm > 50).sort((a, b) => b.optimizedKm - a.optimizedKm).slice(0, 8).map((d, i) => (
                     <div key={i} className="flex justify-between items-center text-sm">
                       <span className="text-red-700 truncate flex-1">{d.lieu}</span>
-                      <span className="text-red-600 font-bold ml-2">{d.km} km</span>
+                      <span className="text-red-600 font-bold ml-2">{d.optimizedKm} km</span>
                     </div>
                   ))}
-                  {data.filter(d => d.km > 50).length === 0 && (
-                    <p className="text-sm text-slate-500 italic">Aucun trajet &gt; 50km</p>
+                  {stats.critiques === 0 && hyp !== 'current' && (
+                    <p className="text-sm text-green-700">🎉 L'hypothèse élimine tous les trajets &gt;50km !</p>
+                  )}
+                  {stats.critiques === 0 && hyp === 'current' && (
+                    <p className="text-sm text-slate-500 italic">Aucun trajet &gt; 50km actuellement</p>
                   )}
                 </div>
-                <p className="text-xs text-red-600 mt-2 pt-2 border-t border-red-200">
-                  💡 Ces enfants font plus de 50km aller
-                </p>
+                {stats.critiques > 0 && (
+                  <p className="text-xs text-red-600 mt-2 pt-2 border-t border-red-200">
+                    💡 Ces enfants font plus de 50km aller
+                  </p>
+                )}
               </div>
 
               {/* Répartition distances */}
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-                <h3 className="font-bold text-slate-800 mb-3">Répartition distances</h3>
+                <h3 className="font-bold text-slate-800 mb-3">Répartition distances {hyp !== 'current' && <span className="text-xs text-emerald-600">(optimisée)</span>}</h3>
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-slate-600 flex items-center gap-2">
@@ -663,13 +681,13 @@ export default function App() {
                     <span className="text-sm text-slate-600 flex items-center gap-2">
                       <span className="w-3 h-3 rounded-full bg-amber-500" /> 15-35 km
                     </span>
-                    <span className="font-medium">{data.filter(d => d.km >= 15 && d.km < 35).length}</span>
+                    <span className="font-medium">{optimizedData.filter(d => d.optimizedKm >= 15 && d.optimizedKm < 35).length}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-slate-600 flex items-center gap-2">
                       <span className="w-3 h-3 rounded-full bg-orange-500" /> 35-50 km (aberrant)
                     </span>
-                    <span className="font-medium text-orange-600">{data.filter(d => d.km >= 35 && d.km < 50).length}</span>
+                    <span className="font-medium text-orange-600">{optimizedData.filter(d => d.optimizedKm >= 35 && d.optimizedKm < 50).length}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-slate-600 flex items-center gap-2">
@@ -679,7 +697,7 @@ export default function App() {
                   </div>
                 </div>
                 <p className="text-xs text-slate-500 mt-3 pt-2 border-t">
-                  Total : {stats.kmTotal} km/jour parcourus
+                  Total : {stats.kmTotal} km/jour {stats.kmSaved > 0 && <span className="text-emerald-600">(−{stats.kmSaved} km économisés)</span>}
                 </p>
               </div>
             </div>
@@ -723,16 +741,18 @@ export default function App() {
                     <div className="bg-red-50" style={{ width: '50%' }}></div>
                   </div>
                   
-                  {/* Points - each child */}
-                  {data.map((item, i) => {
-                    const x = Math.min((item.km / 100) * 100, 98);
-                    const y = (i / data.length) * 85 + 5;
-                    const color = item.km > 50 ? '#dc2626' : item.km > 35 ? '#f97316' : item.km > 15 ? '#f59e0b' : '#22c55e';
+                  {/* Points - each child (optimisé selon hypothèse) */}
+                  {optimizedData.map((item, i) => {
+                    const km = item.optimizedKm;
+                    const x = Math.min((km / 100) * 100, 98);
+                    const y = (i / optimizedData.length) * 85 + 5;
+                    const color = km > 50 ? '#dc2626' : km > 35 ? '#f97316' : km > 15 ? '#f59e0b' : '#22c55e';
+                    const improved = item.optimizedKm < item.km;
                     return (
                       <div key={i} 
-                        className="absolute w-2 h-2 rounded-full transform -translate-x-1/2 -translate-y-1/2 hover:scale-150 hover:z-10 cursor-pointer transition-transform"
+                        className={`absolute w-2 h-2 rounded-full transform -translate-x-1/2 -translate-y-1/2 hover:scale-150 hover:z-10 cursor-pointer transition-all ${improved ? 'ring-2 ring-emerald-400' : ''}`}
                         style={{ left: `${x}%`, top: `${y}%`, backgroundColor: color }}
-                        title={`${item.lieu} → ${item.etablissement || item.ecole}: ${item.km} km`}
+                        title={`${item.lieu} → ${item.etablissement || item.ecole}: ${km} km${improved ? ` (était ${item.km} km)` : ''}`}
                       />
                     );
                   })}
@@ -747,15 +767,15 @@ export default function App() {
 
               {/* Bar chart par établissement */}
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                <h3 className="font-bold text-slate-800 mb-4">Répartition par établissement de rattachement</h3>
+                <h3 className="font-bold text-slate-800 mb-4">Répartition par établissement {hyp !== 'current' && <span className="text-xs text-emerald-600">(optimisée)</span>}</h3>
                 <p className="text-sm text-slate-500 mb-4">Nombre d'enfants et distance moyenne par pôle.</p>
                 <div className="space-y-4">
                   {['CME Montbard', 'IME Châtillon', 'IME Semur'].map(etab => {
-                    const children = data.filter(d => (d.etablissement || '').includes(etab.split(' ')[1]) || (d.etablissement || '').includes(etab));
-                    const avgKm = children.length > 0 ? (children.reduce((s, d) => s + d.km, 0) / children.length).toFixed(1) : 0;
-                    const critiques = children.filter(d => d.km > 50).length;
+                    const children = optimizedData.filter(d => (d.etablissement || '').includes(etab.split(' ')[1]) || (d.etablissement || '').includes(etab));
+                    const avgKm = children.length > 0 ? (children.reduce((s, d) => s + d.optimizedKm, 0) / children.length).toFixed(1) : 0;
+                    const critiques = children.filter(d => d.optimizedKm > 50).length;
                     const maxWidth = Math.max(...['CME Montbard', 'IME Châtillon', 'IME Semur'].map(e => 
-                      data.filter(d => (d.etablissement || '').includes(e.split(' ')[1])).length
+                      optimizedData.filter(d => (d.etablissement || '').includes(e.split(' ')[1])).length
                     ));
                     return (
                       <div key={etab}>
@@ -764,10 +784,10 @@ export default function App() {
                           <span className="text-slate-500">{children.length} enfants • Moy: {avgKm} km</span>
                         </div>
                         <div className="h-6 bg-slate-100 rounded-full overflow-hidden flex">
-                          <div className="bg-green-500 h-full" style={{ width: `${(children.filter(d => d.km < 15).length / maxWidth) * 100}%` }}></div>
-                          <div className="bg-amber-500 h-full" style={{ width: `${(children.filter(d => d.km >= 15 && d.km < 35).length / maxWidth) * 100}%` }}></div>
-                          <div className="bg-orange-500 h-full" style={{ width: `${(children.filter(d => d.km >= 35 && d.km < 50).length / maxWidth) * 100}%` }}></div>
-                          <div className="bg-red-500 h-full" style={{ width: `${(children.filter(d => d.km >= 50).length / maxWidth) * 100}%` }}></div>
+                          <div className="bg-green-500 h-full" style={{ width: `${(children.filter(d => d.optimizedKm < 15).length / maxWidth) * 100}%` }}></div>
+                          <div className="bg-amber-500 h-full" style={{ width: `${(children.filter(d => d.optimizedKm >= 15 && d.optimizedKm < 35).length / maxWidth) * 100}%` }}></div>
+                          <div className="bg-orange-500 h-full" style={{ width: `${(children.filter(d => d.optimizedKm >= 35 && d.optimizedKm < 50).length / maxWidth) * 100}%` }}></div>
+                          <div className="bg-red-500 h-full" style={{ width: `${(children.filter(d => d.optimizedKm >= 50).length / maxWidth) * 100}%` }}></div>
                         </div>
                         {critiques > 0 && <p className="text-xs text-red-600 mt-1">⚠️ {critiques} trajet(s) critique(s) &gt;50km</p>}
                       </div>
@@ -835,7 +855,7 @@ export default function App() {
               <h3 className="font-bold text-red-800 mb-4 flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5" /> 
                 Détail des flux aberrants ({stats.critiques} trajets &gt;50km)
-              </h3>
+            </h3>
               <div className="grid grid-cols-2 gap-4">
                 {data.filter(d => d.km > 50).sort((a, b) => b.km - a.km).map((d, i) => (
                   <div key={i} className="bg-white rounded-lg p-3 border border-red-200">
