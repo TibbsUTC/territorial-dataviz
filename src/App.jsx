@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup, Circle, Tooltip, Marker } from 'react-leaflet';
-import { MapPin, Users, Building2, AlertTriangle, Target, BarChart3, Eye, Table, Map, TrendingUp, Sparkles, PieChart, Brain, Download, RefreshCw, Zap, Save, CheckCircle, XCircle, Loader2, Calculator, Euro, Fuel, Clock, Heart, School, MapPinned, TrendingDown, Banknote, Car } from 'lucide-react';
+import { MapPin, Users, Building2, AlertTriangle, Target, BarChart3, Eye, Table, Map, TrendingUp, Sparkles, PieChart, Brain, Download, RefreshCw, Zap, Save, CheckCircle, XCircle, Loader2, Calculator, Euro, Fuel, Clock, Heart, School, MapPinned, TrendingDown, Banknote, Car, LogOut } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -389,7 +389,187 @@ async function callClaudeAPI(prompt) {
   return data.content[0].text;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// CODE D'ACCÈS SÉCURISÉ
+// ═══════════════════════════════════════════════════════════════════════════════
+const ACCESS_CODE = 'alasuite';
+
+// Composant Page de Connexion
+function LoginPage({ onLogin }) {
+  const [code, setCode] = useState('');
+  const [error, setError] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (code.toLowerCase() === ACCESS_CODE) {
+      localStorage.setItem('vyv3_auth', 'true');
+      onLogin();
+    } else {
+      setError(true);
+      setTimeout(() => setError(false), 2000);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
+      {/* Background Pattern */}
+      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxjaXJjbGUgY3g9IjMwIiBjeT0iMzAiIHI9IjEuNSIgZmlsbD0iI2ZmZiIgZmlsbC1vcGFjaXR5PSIuMDUiLz48L2c+PC9zdmc+')] opacity-40"></div>
+      
+      <div className="relative w-full max-w-5xl grid md:grid-cols-2 gap-8 items-center">
+        {/* Section Gauche - Présentation */}
+        <div className="text-white space-y-8">
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center">
+                <BarChart3 className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold">VyV3 Territorial</h1>
+                <p className="text-slate-400 text-sm">Intelligence Stratégique</p>
+              </div>
+            </div>
+            <h2 className="text-4xl md:text-5xl font-bold leading-tight">
+              Optimisez votre 
+              <span className="bg-gradient-to-r from-blue-400 to-violet-400 bg-clip-text text-transparent"> maillage territorial</span>
+            </h2>
+          </div>
+
+          <p className="text-lg text-slate-300 leading-relaxed">
+            Plateforme d'aide à la décision pour les établissements médico-sociaux. 
+            Visualisez, analysez et optimisez la couverture territoriale de vos services.
+          </p>
+
+          <div className="space-y-4">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+                <Map className="w-5 h-5 text-blue-400" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-white">Cartographie Interactive</h3>
+                <p className="text-slate-400 text-sm">Visualisez les flux de transport et identifiez les zones non couvertes en temps réel.</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                <Calculator className="w-5 h-5 text-emerald-400" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-white">Analyse Économique</h3>
+                <p className="text-slate-400 text-sm">Calculez précisément les coûts de transport et les économies potentielles.</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-lg bg-violet-500/20 flex items-center justify-center flex-shrink-0">
+                <Brain className="w-5 h-5 text-violet-400" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-white">Intelligence Artificielle</h3>
+                <p className="text-slate-400 text-sm">Générez automatiquement des hypothèses d'optimisation avec Claude AI.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-slate-700">
+            <p className="text-slate-500 text-sm">
+              Développé pour VyV3 • Côte-d'Or • {new Date().getFullYear()}
+            </p>
+          </div>
+        </div>
+
+        {/* Section Droite - Formulaire */}
+        <div className="bg-white rounded-2xl shadow-2xl p-8 md:p-10">
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center mx-auto mb-4">
+              <Target className="w-8 h-8 text-white" />
+            </div>
+            <h3 className="text-2xl font-bold text-slate-800">Accès Sécurisé</h3>
+            <p className="text-slate-500 mt-2">Entrez votre code d'accès pour continuer</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Code d'accès
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  placeholder="••••••••"
+                  className={`w-full px-4 py-3 rounded-xl border-2 transition-all outline-none text-lg
+                    ${error 
+                      ? 'border-red-300 bg-red-50 text-red-900 placeholder-red-300' 
+                      : 'border-slate-200 focus:border-slate-800 bg-white'}`}
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  <Eye className="w-5 h-5" />
+                </button>
+              </div>
+              {error && (
+                <p className="text-red-500 text-sm mt-2 flex items-center gap-1">
+                  <XCircle className="w-4 h-4" />
+                  Code d'accès incorrect
+                </p>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-3 px-4 bg-slate-800 text-white rounded-xl font-medium hover:bg-slate-700 transition-all flex items-center justify-center gap-2"
+            >
+              Accéder au dashboard
+              <TrendingUp className="w-4 h-4" />
+            </button>
+          </form>
+
+          <div className="mt-8 pt-6 border-t border-slate-100">
+            <div className="flex items-center justify-center gap-6 text-sm text-slate-400">
+              <span className="flex items-center gap-1">
+                <CheckCircle className="w-4 h-4 text-emerald-500" />
+                112 enfants suivis
+              </span>
+              <span className="flex items-center gap-1">
+                <CheckCircle className="w-4 h-4 text-emerald-500" />
+                56 communes
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
+  // État d'authentification
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return localStorage.getItem('vyv3_auth') === 'true';
+  });
+
+  const handleLogout = () => {
+    localStorage.removeItem('vyv3_auth');
+    setIsAuthenticated(false);
+  };
+
+  // Si non authentifié, afficher la page de connexion
+  if (!isAuthenticated) {
+    return <LoginPage onLogin={() => setIsAuthenticated(true)} />;
+  }
+
+  // Dashboard principal (utilisateur authentifié)
+  return <Dashboard onLogout={handleLogout} />;
+}
+
+function Dashboard({ onLogout }) {
   const [activeTab, setActiveTab] = useState('ALL');
   const [hyp, setHyp] = useState('current'); // 'current', 'hyp1', 'hyp2', 'hyp3'
   const [view, setView] = useState('map'); // 'map', 'table', 'dataviz', 'ia'
@@ -818,12 +998,21 @@ IMPORTANT:
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-[1600px] mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                <BarChart3 className="w-6 h-6 text-blue-600" />
-                Cartographie Territoriale VyV3
-              </h1>
-              <p className="text-sm text-slate-500">Analyse des besoins vs offre médico-sociale • Côte-d'Or</p>
+            <div className="flex items-center gap-4">
+              <div>
+                <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                  <BarChart3 className="w-6 h-6 text-blue-600" />
+                  Cartographie Territoriale VyV3
+                </h1>
+                <p className="text-sm text-slate-500">Analyse des besoins vs offre médico-sociale • Côte-d'Or</p>
+              </div>
+              <button 
+                onClick={onLogout}
+                className="ml-2 p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                title="Se déconnecter"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
             </div>
             <div className="flex items-center gap-3">
               {/* Toggle Vue */}
