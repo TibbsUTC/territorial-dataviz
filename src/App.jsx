@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { MapContainer, TileLayer, CircleMarker, Popup, Circle, Tooltip, Marker } from 'react-leaflet';
+import { MapContainer, TileLayer, CircleMarker, Popup, Circle, Tooltip, Marker, Polyline } from 'react-leaflet';
 import { MapPin, Users, Building2, AlertTriangle, Target, BarChart3, Eye, Table, Map, TrendingUp, Sparkles, PieChart, Brain, Download, RefreshCw, Zap, Save, CheckCircle, XCircle, Loader2, Calculator, Euro, Fuel, Clock, Heart, School, MapPinned, TrendingDown, Banknote, Car, LogOut, Moon, Sun, MessageCircle, Send, X, Minimize2 } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 
@@ -584,6 +584,7 @@ function Dashboard({ onLogout }) {
   const [hyp, setHyp] = useState('current'); // 'current', 'hyp1', 'hyp2', 'hyp3'
   const [view, setView] = useState('map'); // 'map', 'table', 'dataviz', 'ia'
   const [showZones, setShowZones] = useState(true);
+  const [showFlows, setShowFlows] = useState(false);
   
   // Dark Mode
   const [darkMode, setDarkMode] = useState(() => {
@@ -1393,11 +1394,17 @@ IMPORTANT:
             )}
           </div>
 
-          {/* Toggle zones */}
-          <label className="flex items-center gap-2 cursor-pointer ml-auto">
-            <input type="checkbox" checked={showZones} onChange={() => setShowZones(!showZones)} className="rounded border-slate-300" />
-            <span className="text-sm text-slate-600">Zones de couverture</span>
-          </label>
+          {/* Toggles visualisation */}
+          <div className="flex items-center gap-4 ml-auto">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={showZones} onChange={() => setShowZones(!showZones)} className="rounded border-slate-300" />
+              <span className="text-sm text-slate-600">Zones de couverture</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={showFlows} onChange={() => setShowFlows(!showFlows)} className="rounded border-slate-300 accent-violet-600" />
+              <span className="text-sm text-slate-600">Flux trajets</span>
+            </label>
+          </div>
         </div>
 
         {/* KPIs */}
@@ -1451,6 +1458,46 @@ IMPORTANT:
                     </Popup>
                 </CircleMarker>
               ))}
+
+                {/* Flux trajets - Beautiful dataviz */}
+                {showFlows && optimizedData.map((d, i) => {
+                  const startCoords = getCoords(d.lieu);
+                  if (!startCoords) return null;
+                  
+                  // Trouver la destination (établissement ou antenne la plus proche)
+                  let endCoords = ETABLISSEMENTS.find(e => e.nom.includes(d.etablissement?.split(' ')[1] || ''))?.coords;
+                  if (!endCoords) {
+                    // Fallback vers établissement par défaut selon le type
+                    if (d.source === 'IME') {
+                      endCoords = d.etablissement?.includes('Châtillon') ? ETABLISSEMENTS[0].coords 
+                                : d.etablissement?.includes('Semur') ? ETABLISSEMENTS[1].coords 
+                                : ETABLISSEMENTS[2].coords;
+                    } else {
+                      endCoords = ETABLISSEMENTS[1].coords; // SESSAD → Semur par défaut
+                    }
+                  }
+                  if (!endCoords) endCoords = ETABLISSEMENTS[1].coords;
+                  
+                  // Couleur selon distance optimisée
+                  const km = d.optimizedKm;
+                  const color = km > 50 ? '#ef4444' : km > 35 ? '#f97316' : km > 15 ? '#eab308' : '#22c55e';
+                  const opacity = km > 50 ? 0.8 : km > 35 ? 0.6 : 0.3;
+                  const weight = km > 50 ? 2.5 : km > 35 ? 2 : 1;
+                  
+                  return (
+                    <Polyline 
+                      key={`flow-${i}`}
+                      positions={[startCoords, endCoords]}
+                      pathOptions={{ 
+                        color, 
+                        weight, 
+                        opacity,
+                        dashArray: km > 50 ? '8, 4' : undefined,
+                        lineCap: 'round'
+                      }}
+                    />
+                  );
+                })}
 
                 {/* Zones antennes hypothèse */}
                 {showZones && hyp !== 'current' && (hyp === 'hyp3' ? iaHypothesis?.items : HYPOTHESES[hyp]?.items)?.map((ant, i) => (
