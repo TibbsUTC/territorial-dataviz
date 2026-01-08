@@ -1364,106 +1364,116 @@ IMPORTANT:
              VUE IA - Analyse et Génération d'Hypothèse
           ═══════════════════════════════════════════════════════════════════ */
           <div className="space-y-6">
-            {/* PUNCHLINE - Le Gaspillage */}
-            <div className="bg-gradient-to-r from-red-600 via-orange-600 to-amber-500 rounded-xl p-6 text-white relative overflow-hidden shadow-2xl">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
-              <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2"></div>
-              <div className="relative">
-                <div className="flex items-center gap-3 mb-4">
-                  <Fuel className="w-10 h-10" />
-                  <div>
-                    <p className="text-white/70 text-sm font-medium">CONSTAT ÉCONOMIQUE</p>
-                    <h2 className="text-3xl font-black">Le Gaspillage Invisible</h2>
+            {/* Synthèse Économique - Style Consulting Premium */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="bg-slate-800 px-6 py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-slate-700 flex items-center justify-center">
+                      <BarChart3 className="w-5 h-5 text-slate-300" />
+                    </div>
+                    <div>
+                      <p className="text-slate-400 text-xs font-medium tracking-wider uppercase">Synthèse Économique</p>
+                      <h2 className="text-white text-lg font-semibold">État des lieux transport</h2>
+                    </div>
+                  </div>
+                  <span className="px-3 py-1 bg-slate-700 text-slate-300 text-xs font-medium rounded-full">
+                    Base annuelle : {COST_CONSTANTS.JOURS_TRAVAIL_AN} jours
+                  </span>
+                </div>
+              </div>
+              <div className="p-6">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-slate-50 rounded-lg p-4 border border-slate-100">
+                    <p className="text-xs text-slate-500 font-medium mb-1">Kilométrage annuel</p>
+                    <p className="text-2xl font-bold text-slate-800">{economicAnalysis.kmAnActuel.toLocaleString()}</p>
+                    <p className="text-xs text-slate-400">km parcourus</p>
+                  </div>
+                  <div className="bg-slate-50 rounded-lg p-4 border border-slate-100">
+                    <p className="text-xs text-slate-500 font-medium mb-1">Coût transport</p>
+                    <p className="text-2xl font-bold text-slate-800">{(economicAnalysis.coutTaxiActuel / 1000).toFixed(0)}k€</p>
+                    <p className="text-xs text-slate-400">budget annuel</p>
+                  </div>
+                  <div className="bg-slate-50 rounded-lg p-4 border border-slate-100">
+                    <p className="text-xs text-slate-500 font-medium mb-1">Empreinte carbone</p>
+                    <p className="text-2xl font-bold text-slate-800">{economicAnalysis.co2Actuel}</p>
+                    <p className="text-xs text-slate-400">tonnes CO₂/an</p>
+                  </div>
+                  <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
+                    <p className="text-xs text-amber-600 font-medium mb-1">Trajets longs ({'>'}45min)</p>
+                    <p className="text-2xl font-bold text-amber-700">{economicAnalysis.enfantsPenibilite}</p>
+                    <p className="text-xs text-amber-500">enfants concernés</p>
                   </div>
                 </div>
-                <blockquote className="text-xl md:text-2xl font-medium italic border-l-4 border-white/50 pl-4 mb-4">
-                  "Cela représente un gaspillage de près de <span className="font-black text-yellow-300">{economicAnalysis.kmJourActuel.toLocaleString()} km</span> par jour. 
-                  C'est le budget de <span className="font-black text-yellow-300">{Math.max(2, economicAnalysis.equivalentEducateurs)} éducateurs</span> à temps plein 
-                  qui part en fumée dans du diesel."
-                </blockquote>
-                <div className="flex flex-wrap gap-6 mt-4">
-                  <div className="bg-white/20 rounded-lg px-4 py-2">
-                    <p className="text-xs text-white/70">Par an</p>
-                    <p className="text-2xl font-bold">{economicAnalysis.kmAnActuel.toLocaleString()} km</p>
-                  </div>
-                  <div className="bg-white/20 rounded-lg px-4 py-2">
-                    <p className="text-xs text-white/70">Coût transport</p>
-                    <p className="text-2xl font-bold">{economicAnalysis.coutTaxiActuel.toLocaleString()} €</p>
-                  </div>
-                  <div className="bg-white/20 rounded-lg px-4 py-2">
-                    <p className="text-xs text-white/70">CO₂ émis</p>
-                    <p className="text-2xl font-bold">{economicAnalysis.co2Actuel} tonnes</p>
-                  </div>
-                  <div className="bg-white/20 rounded-lg px-4 py-2">
-                    <p className="text-xs text-white/70">Enfants en pénibilité</p>
-                    <p className="text-2xl font-bold">{economicAnalysis.enfantsPenibilite} enfants</p>
-                  </div>
-                </div>
+                <p className="text-sm text-slate-500 mt-4 pt-4 border-t border-slate-100">
+                  <span className="font-medium text-slate-600">Insight clé :</span> Le kilométrage quotidien actuel ({economicAnalysis.kmJourActuel.toLocaleString()} km/jour) 
+                  représente un coût d'opportunité significatif, équivalent au financement de {Math.max(2, economicAnalysis.equivalentEducateurs)} postes d'accompagnement à temps plein.
+                </p>
               </div>
             </div>
 
             {/* Header IA */}
-            <div className="bg-gradient-to-r from-violet-600 via-fuchsia-600 to-pink-600 rounded-xl p-6 text-white relative overflow-hidden">
-              <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxjaXJjbGUgY3g9IjIwIiBjeT0iMjAiIHI9IjEiIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iLjEiLz48L2c+PC9zdmc+')] opacity-30"></div>
-              <div className="relative">
-                <div className="flex items-center gap-3 mb-2">
-                  <Brain className="w-8 h-8" />
-                  <h2 className="text-2xl font-bold">Intelligence Artificielle - Analyse Territoriale</h2>
+            <div className="bg-slate-50 rounded-xl border border-slate-200 p-5">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-lg">
+                  <Brain className="w-6 h-6 text-white" />
                 </div>
-                <p className="text-white/80">Claude AI analyse vos données et propose une hypothèse innovante pour optimiser votre couverture territoriale.</p>
+                <div className="flex-1">
+                  <h2 className="text-lg font-semibold text-slate-800">Optimisation par Intelligence Artificielle</h2>
+                  <p className="text-sm text-slate-500">Génération d'hypothèses territoriales et analyse comparative automatisée</p>
+                </div>
               </div>
             </div>
 
             {/* Actions */}
-            <div className="flex flex-wrap gap-4">
+            <div className="flex flex-wrap gap-3">
               <button 
                 onClick={generateIAAnalysis}
                 disabled={iaLoading}
-                className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium text-white shadow-lg transition-all
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium text-white transition-all
                   ${iaLoading 
                     ? 'bg-slate-400 cursor-not-allowed' 
-                    : 'bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:shadow-xl hover:scale-105'}`}
+                    : 'bg-slate-800 hover:bg-slate-700'}`}
               >
                 {iaLoading ? (
                   <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin" />
                     Analyse en cours...
                   </>
                 ) : (
                   <>
-                    <Zap className="w-5 h-5" />
-                    {iaAnalysis ? 'Regénérer l\'analyse' : 'Lancer l\'analyse IA'}
+                    <Brain className="w-4 h-4" />
+                    {iaAnalysis ? 'Relancer l\'analyse' : 'Lancer l\'analyse IA'}
                   </>
                 )}
               </button>
 
               <button 
                 onClick={() => setShowCostAnalysis(!showCostAnalysis)}
-                className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all shadow-lg
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-all
                   ${showCostAnalysis 
                     ? 'bg-emerald-600 text-white' 
-                    : 'bg-white border-2 border-emerald-500 text-emerald-700 hover:bg-emerald-50'}`}
+                    : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'}`}
               >
-                <Calculator className="w-5 h-5" />
-                {showCostAnalysis ? 'Masquer les coûts' : 'Calculer les coûts'}
+                <Calculator className="w-4 h-4" />
+                {showCostAnalysis ? 'Masquer l\'analyse coûts' : 'Analyse des coûts'}
               </button>
 
               {iaHypothesis && (
-                <>
-                  <button 
-                    onClick={exportHypothesis}
-                    className="flex items-center gap-2 px-6 py-3 bg-white border-2 border-blue-500 text-blue-700 rounded-xl font-medium hover:bg-blue-50 transition-all"
-                  >
-                    <Download className="w-5 h-5" />
-                    Exporter l'hypothèse
-                  </button>
-                  {iaSaved && (
-                    <span className="flex items-center gap-2 text-emerald-600 font-medium">
-                      <CheckCircle className="w-5 h-5" />
-                      Exporté !
-                    </span>
-                  )}
-                </>
+                <button 
+                  onClick={exportHypothesis}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-300 text-slate-700 rounded-lg font-medium hover:bg-slate-50 transition-all"
+                >
+                  <Download className="w-4 h-4" />
+                  Exporter
+                </button>
+              )}
+              
+              {iaSaved && (
+                <span className="flex items-center gap-2 text-emerald-600 text-sm font-medium">
+                  <CheckCircle className="w-4 h-4" />
+                  Exporté
+                </span>
               )}
             </div>
 
@@ -1833,27 +1843,27 @@ IMPORTANT:
                     )}
 
                     {/* Bouton pour activer */}
-                    <div className="mt-6 flex flex-wrap items-center gap-4">
+                    <div className="mt-6 flex flex-wrap items-center gap-3">
                       <button 
                         onClick={() => { setHyp('hyp3'); setView('map'); }}
-                        className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-xl font-medium shadow-lg hover:shadow-xl hover:scale-105 transition-all"
+                        className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg font-medium text-sm hover:bg-slate-700 transition-all"
                       >
-                        <Map className="w-5 h-5" />
+                        <Map className="w-4 h-4" />
                         Voir sur la carte
                       </button>
                       <button 
                         onClick={() => { setHyp('hyp3'); setView('dataviz'); }}
-                        className="flex items-center gap-2 px-6 py-3 bg-white border-2 border-violet-500 text-violet-700 rounded-xl font-medium hover:bg-violet-50 transition-all"
+                        className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg font-medium text-sm hover:bg-slate-50 transition-all"
                       >
-                        <BarChart3 className="w-5 h-5" />
-                        Comparer les métriques
+                        <BarChart3 className="w-4 h-4" />
+                        Comparer
                       </button>
                       <button 
                         onClick={() => { setHyp('hyp3'); setShowCostAnalysis(true); }}
-                        className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-medium shadow-lg hover:shadow-xl hover:scale-105 transition-all"
+                        className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium text-sm hover:bg-emerald-700 transition-all"
                       >
-                        <Calculator className="w-5 h-5" />
-                        💰 Calculer les coûts
+                        <Calculator className="w-4 h-4" />
+                        Analyse coûts
                       </button>
                     </div>
                   </div>
