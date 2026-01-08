@@ -974,19 +974,19 @@ ${topCommunes.map(c => `- ${c.commune}: ${c.enfants} enfants, ${c.distMoy} km mo
 ZONES BLANCHES (>35km): ${zonesBlanches.length > 0 ? zonesBlanches.join(', ') : 'Aucune'}
 
 ANALYSE ECONOMIQUE HYPOTHESE SELECTIONNEE (${hyp === 'current' ? 'Etat actuel' : hyp === 'hyp3' ? 'Hypothese IA' : `Hypothese ${hyp.replace('hyp', '')}`}):
-- Km annuels etat actuel: ${economicAnalysis.kmAnActuel?.toLocaleString()} km
-- Km annuels optimises: ${economicAnalysis.kmAnOptimise?.toLocaleString()} km
-- Km economises/an: ${(economicAnalysis.kmAnActuel - economicAnalysis.kmAnOptimise)?.toLocaleString()} km
-- Cout transport actuel: ${economicAnalysis.coutTransportActuel?.toLocaleString()} EUR/an
-- Cout transport optimise: ${economicAnalysis.coutTransportOptimise?.toLocaleString()} EUR/an
-- Economie transport brute: ${economicAnalysis.economieTransport?.toLocaleString()} EUR/an
-- Nb antennes a creer: ${economicAnalysis.nbAntennes}
-- Investissement amenagement: ${economicAnalysis.investAmenagement?.toLocaleString()} EUR (one-shot)
-- Loyer annuel antennes: ${economicAnalysis.coutLoyerAn?.toLocaleString()} EUR/an
-- ECONOMIE NETTE: ${economicAnalysis.economieNette?.toLocaleString()} EUR/an
-- Equivalent postes educateurs: ${economicAnalysis.equivalentEducateurs} postes
-- ROI: ${economicAnalysis.roiMois > 0 ? economicAnalysis.roiMois + ' mois' : 'Immediat (pas d\'investissement initial)'}
-- Reduction trajets penibles: ${economicAnalysis.reductionPenibilite} enfants
+- Km annuels etat actuel: ${String(economicAnalysis.kmAnActuel)} km
+- Km annuels optimises: ${String(economicAnalysis.kmAnOptimise)} km
+- Km economises/an: ${String(economicAnalysis.kmEconomisesAn)} km
+- Cout transport actuel (budget reel): 800000 EUR/an
+- Cout transport optimise: ${String(economicAnalysis.coutTransportOptimise)} EUR/an
+- Economie transport brute: ${String(economicAnalysis.economieTransport)} EUR/an
+- Nb antennes a creer: ${String(economicAnalysis.nbAntennes)}
+- Investissement amenagement: ${String(economicAnalysis.investAmenagement)} EUR (one-shot)
+- Loyer annuel antennes: ${String(economicAnalysis.coutLoyerAn)} EUR/an
+- ECONOMIE NETTE (apres loyers): ${String(economicAnalysis.economieNette)} EUR/an
+- Equivalent postes educateurs: ${String(economicAnalysis.equivalentEducateurs)} postes
+- ROI: ${economicAnalysis.investAmenagement > 0 && economicAnalysis.economieNette > 0 ? Math.ceil(economicAnalysis.investAmenagement / (economicAnalysis.economieNette / 12)) + ' mois' : 'Immediat'}
+- Reduction trajets penibles (>45min): ${String(economicAnalysis.reductionPenibilite)} enfants
 `.trim();
       
       const prompt = `Tu es un Partner McKinsey expert en transformation territoriale medico-sociale.
