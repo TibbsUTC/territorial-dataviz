@@ -659,56 +659,6 @@ function Dashboard({ onLogout }) {
     if (hyp === 'hyp3') setHyp('current');
   }, [hyp]);
 
-  // Chatbot - Envoi de message avec contexte de données
-  const sendChatMessage = useCallback(async () => {
-    if (!chatInput.trim() || chatLoading) return;
-    
-    const userMessage = chatInput.trim();
-    setChatInput('');
-    setChatMessages(prev => [...prev, { role: 'user', content: userMessage }]);
-    setChatLoading(true);
-    
-    try {
-      // Préparer le contexte des données
-      const dataContext = `
-CONTEXTE DONNÉES VYV3:
-- Total enfants: ${stats?.total || 0}
-- Distance moyenne: ${stats?.avgKm || 0} km
-- Couverture (<15km): ${coverage?.percentage || 0}%
-- Trajets aberrants (>35km): ${stats?.aberrants || 0}
-- Trajets critiques (>50km): ${stats?.critiques || 0}
-- Budget transport réel: 800 000€/an (source PDF)
-- Hypothèse sélectionnée: ${hyp === 'current' ? 'État actuel' : hyp === 'hyp3' ? 'Hypothèse IA' : `Hypothèse ${hyp.replace('hyp', '')}`}
-- Économie potentielle: ${economicAnalysis?.economieTransport?.toLocaleString() || 0}€
-- Établissements: IME Châtillon, IME Semur, CME Montbard
-
-COÛTS PAR ÉTABLISSEMENT (Source PDF):
-- IME Châtillon: 2 955€/enfant (28 enfants) = 82 740€
-- CME Montbard: 4 200€/enfant (30 enfants) = 126 000€
-- IME Semur: 12 232€/enfant (40 enfants) = 489 280€ ⚠️ FLUX ABERRANTS
-- SESSAD: ~100 000€
-
-INSIGHT CLÉ: Le pôle SEMUR coûte 4x plus cher que les autres en transport.
-      `.trim();
-      
-      const prompt = `Tu es un assistant expert en analyse territoriale médico-sociale pour VyV3 Bourgogne.
-      
-${dataContext}
-
-L'utilisateur pose la question suivante:
-"${userMessage}"
-
-Réponds de manière concise, professionnelle et actionnable. Si pertinent, cite des chiffres précis du contexte.`;
-      
-      const response = await callClaudeAPI(prompt);
-      setChatMessages(prev => [...prev, { role: 'assistant', content: response }]);
-    } catch (err) {
-      setChatMessages(prev => [...prev, { role: 'assistant', content: `Erreur: ${err.message}. Vérifiez la configuration API.` }]);
-    } finally {
-      setChatLoading(false);
-    }
-  }, [chatInput, chatLoading, stats, coverage, hyp, economicAnalysis]);
-
   const clearChat = () => {
     setChatMessages([]);
     localStorage.removeItem('vyv3_chat_messages');
@@ -923,6 +873,56 @@ Réponds de manière concise, professionnelle et actionnable. Si pertinent, cite
       gaspillageKmJour: Math.round(kmJourActuel - kmJourOptimise),
     };
   }, [stats, optimizedData, hyp, iaHypothesis]);
+
+  // Chatbot - Envoi de message avec contexte de données (placé après stats et economicAnalysis)
+  const sendChatMessage = useCallback(async () => {
+    if (!chatInput.trim() || chatLoading) return;
+    
+    const userMessage = chatInput.trim();
+    setChatInput('');
+    setChatMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    setChatLoading(true);
+    
+    try {
+      // Préparer le contexte des données
+      const dataContext = `
+CONTEXTE DONNÉES VYV3:
+- Total enfants: ${stats?.total || 0}
+- Distance moyenne: ${stats?.avgKm || 0} km
+- Couverture (<15km): ${coverage?.percentage || 0}%
+- Trajets aberrants (>35km): ${stats?.aberrants || 0}
+- Trajets critiques (>50km): ${stats?.critiques || 0}
+- Budget transport réel: 800 000€/an (source PDF)
+- Hypothèse sélectionnée: ${hyp === 'current' ? 'État actuel' : hyp === 'hyp3' ? 'Hypothèse IA' : `Hypothèse ${hyp.replace('hyp', '')}`}
+- Économie potentielle: ${economicAnalysis?.economieTransport?.toLocaleString() || 0}€
+- Établissements: IME Châtillon, IME Semur, CME Montbard
+
+COÛTS PAR ÉTABLISSEMENT (Source PDF):
+- IME Châtillon: 2 955€/enfant (28 enfants) = 82 740€
+- CME Montbard: 4 200€/enfant (30 enfants) = 126 000€
+- IME Semur: 12 232€/enfant (40 enfants) = 489 280€ ⚠️ FLUX ABERRANTS
+- SESSAD: ~100 000€
+
+INSIGHT CLÉ: Le pôle SEMUR coûte 4x plus cher que les autres en transport.
+      `.trim();
+      
+      const prompt = `Tu es un assistant expert en analyse territoriale médico-sociale pour VyV3 Bourgogne.
+      
+${dataContext}
+
+L'utilisateur pose la question suivante:
+"${userMessage}"
+
+Réponds de manière concise, professionnelle et actionnable. Si pertinent, cite des chiffres précis du contexte.`;
+      
+      const response = await callClaudeAPI(prompt);
+      setChatMessages(prev => [...prev, { role: 'assistant', content: response }]);
+    } catch (err) {
+      setChatMessages(prev => [...prev, { role: 'assistant', content: `Erreur: ${err.message}. Vérifiez la configuration API.` }]);
+    } finally {
+      setChatLoading(false);
+    }
+  }, [chatInput, chatLoading, stats, coverage, hyp, economicAnalysis]);
 
   // Génération de l'analyse IA globale
   const generateIAAnalysis = useCallback(async () => {
