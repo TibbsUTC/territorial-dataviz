@@ -966,20 +966,27 @@ ${hyp3Stats ? `HYPOTHESE IA (${iaHypothesis.name}):
 - Antennes: ${iaHypothesis.items.map(a => a.nom).join(', ')}
 - Couverture projetée: ${hyp3Stats.couverture}%
 - Distance moyenne: ${hyp3Stats.distMoy} km
-- Trajets aberrants: ${hyp3Stats.aberrants}
-- Economie nette estimée: ${economicAnalysis?.economieNette?.toLocaleString() || 0} EUR/an` : 'HYPOTHESE IA: Non générée'}
+- Trajets aberrants: ${hyp3Stats.aberrants}` : 'HYPOTHESE IA: Non générée'}
 
 TOP 15 COMMUNES (par nb enfants):
 ${topCommunes.map(c => `- ${c.commune}: ${c.enfants} enfants, ${c.distMoy} km moy`).join('\n')}
 
 ZONES BLANCHES (>35km): ${zonesBlanches.length > 0 ? zonesBlanches.join(', ') : 'Aucune'}
 
-ANALYSE ECONOMIQUE (si hypothèse active):
-- Km annuels actuels: ${economicAnalysis?.kmAnActuel?.toLocaleString() || 0}
-- Km annuels optimisés: ${economicAnalysis?.kmAnOptimise?.toLocaleString() || 0}
-- Economie transport: ${economicAnalysis?.economieTransport?.toLocaleString() || 0} EUR
-- Equivalent postes: ${economicAnalysis?.equivalentEducateurs || 0}
-- ROI: ${economicAnalysis?.roiMois || 0} mois
+ANALYSE ECONOMIQUE HYPOTHESE SELECTIONNEE (${hyp === 'current' ? 'Etat actuel' : hyp === 'hyp3' ? 'Hypothese IA' : `Hypothese ${hyp.replace('hyp', '')}`}):
+- Km annuels etat actuel: ${economicAnalysis.kmAnActuel?.toLocaleString()} km
+- Km annuels optimises: ${economicAnalysis.kmAnOptimise?.toLocaleString()} km
+- Km economises/an: ${(economicAnalysis.kmAnActuel - economicAnalysis.kmAnOptimise)?.toLocaleString()} km
+- Cout transport actuel: ${economicAnalysis.coutTransportActuel?.toLocaleString()} EUR/an
+- Cout transport optimise: ${economicAnalysis.coutTransportOptimise?.toLocaleString()} EUR/an
+- Economie transport brute: ${economicAnalysis.economieTransport?.toLocaleString()} EUR/an
+- Nb antennes a creer: ${economicAnalysis.nbAntennes}
+- Investissement amenagement: ${economicAnalysis.investAmenagement?.toLocaleString()} EUR (one-shot)
+- Loyer annuel antennes: ${economicAnalysis.coutLoyerAn?.toLocaleString()} EUR/an
+- ECONOMIE NETTE: ${economicAnalysis.economieNette?.toLocaleString()} EUR/an
+- Equivalent postes educateurs: ${economicAnalysis.equivalentEducateurs} postes
+- ROI: ${economicAnalysis.roiMois > 0 ? economicAnalysis.roiMois + ' mois' : 'Immediat (pas d\'investissement initial)'}
+- Reduction trajets penibles: ${economicAnalysis.reductionPenibilite} enfants
 `.trim();
       
       const prompt = `Tu es un Partner McKinsey expert en transformation territoriale medico-sociale.
