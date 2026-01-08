@@ -990,7 +990,7 @@ function Dashboard({ onLogout }) {
     };
   }, [data, aggregatedData, iaHypothesis, hyp]);
 
-  // Chatbot - Envoi de message avec contexte JSON global
+  // Chatbot Agent - Analyse et modification d'hypothèses
   const sendChatMessage = useCallback(async () => {
     if (!chatInput.trim() || chatLoading) return;
     
@@ -1003,74 +1003,126 @@ function Dashboard({ onLogout }) {
       const ctx = globalDataContext;
       const hyp3 = ctx.hypotheses.hyp3;
       
-      const dataContext = `
-DONNEES VYV3 COTE-D'OR (Source: ${ctx.meta.source}, ${ctx.meta.totalEnfants} enfants anonymises)
-
-ETAT ACTUEL:
-- ${ctx.etatActuel.enfants.total} enfants suivis (IME: ${ctx.etatActuel.enfants.ime}, SESSAD: ${ctx.etatActuel.enfants.sessad})
-- ${ctx.meta.totalCommunes} communes distinctes
-- Distance moyenne: ${ctx.etatActuel.distMoy} km
-- Couverture (<15km): ${ctx.etatActuel.couverture}% (${ctx.etatActuel.proches} enfants)
-- Trajets aberrants (>35km): ${ctx.etatActuel.aberrants} enfants
-- Trajets critiques (>50km): ${ctx.etatActuel.critiques} enfants
-- Kilometrage annuel: ${ctx.etatActuel.kmAn.toLocaleString()} km
-
-BUDGET TRANSPORT (800 000 EUR/an):
-- IME Chatillon: ${ctx.budgetTransport.imeChâtillon.coutParEnfant} EUR/enfant
-- CME Montbard: ${ctx.budgetTransport.cmeMontbard.coutParEnfant} EUR/enfant  
-- IME Semur: ${ctx.budgetTransport.imeSemur.coutParEnfant} EUR/enfant (ALERTE: 4x plus cher)
-- SESSAD: ~${ctx.budgetTransport.sessad.total.toLocaleString()} EUR
-
-HYPOTHESE 1 (${ctx.hypotheses.hyp1.nom}):
-- Antennes: ${ctx.hypotheses.hyp1.antennes.join(', ')}
-- Couverture: ${ctx.hypotheses.hyp1.couverture}% | Distance moy: ${ctx.hypotheses.hyp1.distMoy} km
-- Aberrants: ${ctx.hypotheses.hyp1.aberrants} | Km/an: ${ctx.hypotheses.hyp1.kmAn.toLocaleString()}
-- Economie nette: ${ctx.hypotheses.hyp1.economie?.economieNette.toLocaleString()} EUR/an
-- ROI: ${ctx.hypotheses.hyp1.economie?.roiMois || 0} mois | Equiv: ${ctx.hypotheses.hyp1.economie?.equivalentPostes} postes
-
-HYPOTHESE 2 (${ctx.hypotheses.hyp2.nom}):
-- Antennes: ${ctx.hypotheses.hyp2.antennes.join(', ')}
-- Couverture: ${ctx.hypotheses.hyp2.couverture}% | Distance moy: ${ctx.hypotheses.hyp2.distMoy} km
-- Aberrants: ${ctx.hypotheses.hyp2.aberrants} | Km/an: ${ctx.hypotheses.hyp2.kmAn.toLocaleString()}
-- Economie nette: ${ctx.hypotheses.hyp2.economie?.economieNette.toLocaleString()} EUR/an
-- ROI: ${ctx.hypotheses.hyp2.economie?.roiMois || 0} mois | Equiv: ${ctx.hypotheses.hyp2.economie?.equivalentPostes} postes
-
-${hyp3 ? `HYPOTHESE IA (${hyp3.nom}):
-- Antennes: ${hyp3.antennes.join(', ')}
-- Couverture: ${hyp3.couverture}% | Distance moy: ${hyp3.distMoy} km
-- Aberrants: ${hyp3.aberrants} | Km/an: ${hyp3.kmAn.toLocaleString()}
-- Economie nette: ${hyp3.economie?.economieNette.toLocaleString()} EUR/an
-- ROI: ${hyp3.economie?.roiMois || 0} mois | Equiv: ${hyp3.economie?.equivalentPostes} postes` : 'HYPOTHESE IA: Non generee'}
-
-TOP 20 COMMUNES:
-${ctx.topCommunes.map(c => `- ${c.commune}: ${c.enfants} enfants, ${c.distMoy} km`).join('\n')}
-
-ZONES BLANCHES (>35km): ${ctx.zonesBlanches.length > 0 ? ctx.zonesBlanches.join(', ') : 'Aucune'}
-
-HYPOTHESE SELECTIONNEE: ${ctx.hypotheseSelectionnee === 'current' ? 'Etat actuel' : ctx.hypotheseSelectionnee === 'hyp3' ? 'Hypothese IA' : `Hypothese ${ctx.hypotheseSelectionnee.replace('hyp', '')}`}
-`.trim();
+      // Détecter si c'est une demande de modification d'hypothèse
+      const modificationKeywords = ['modifi', 'change', 'ajoute', 'supprime', 'enlève', 'retire', 'déplace', 'remplace', 'crée', 'nouvelle antenne', 'nouvel emplacement', 'optimise', 'améliore'];
+      const isModificationRequest = modificationKeywords.some(kw => userMessage.toLowerCase().includes(kw)) && 
+        (userMessage.toLowerCase().includes('hypothèse') || userMessage.toLowerCase().includes('antenne') || userMessage.toLowerCase().includes('ia'));
       
-      const prompt = `Tu es un Partner McKinsey expert en transformation territoriale medico-sociale.
+      const dataContext = `
+DONNEES VYV3 COTE-D'OR (${ctx.meta.totalEnfants} enfants, ${ctx.meta.totalCommunes} communes)
+
+ETAT ACTUEL: Couverture ${ctx.etatActuel.couverture}% | Distance moy ${ctx.etatActuel.distMoy}km | ${ctx.etatActuel.aberrants} aberrants | ${ctx.etatActuel.kmAn.toLocaleString()}km/an
+
+HYPOTHESE 1 (${ctx.hypotheses.hyp1.nom}): ${ctx.hypotheses.hyp1.antennes.join(', ')}
+Couverture ${ctx.hypotheses.hyp1.couverture}% | ${ctx.hypotheses.hyp1.distMoy}km | Eco ${ctx.hypotheses.hyp1.economie?.economieNette.toLocaleString()}EUR
+
+HYPOTHESE 2 (${ctx.hypotheses.hyp2.nom}): ${ctx.hypotheses.hyp2.antennes.join(', ')}
+Couverture ${ctx.hypotheses.hyp2.couverture}% | ${ctx.hypotheses.hyp2.distMoy}km | Eco ${ctx.hypotheses.hyp2.economie?.economieNette.toLocaleString()}EUR
+
+${hyp3 ? `HYPOTHESE IA ACTUELLE (${hyp3.nom}): ${hyp3.antennes.join(', ')}
+Couverture ${hyp3.couverture}% | ${hyp3.distMoy}km | ${hyp3.aberrants} aberrants | Eco ${hyp3.economie?.economieNette.toLocaleString()}EUR` : 'HYPOTHESE IA: Non generee'}
+
+TOP COMMUNES: ${ctx.topCommunes.slice(0,10).map(c => `${c.commune}(${c.enfants}enf,${c.distMoy}km)`).join(', ')}
+ZONES BLANCHES: ${ctx.zonesBlanches.join(', ') || 'Aucune'}
+
+COMMUNES DISPONIBLES (coords): ${Object.keys(COMMUNES_COORDS).slice(0, 50).join(', ')}...
+`.trim();
+
+      if (isModificationRequest && iaHypothesis) {
+        // Mode modification d'hypothèse avec contrôle de cohérence
+        const modificationPrompt = `Tu es un Agent IA expert en optimisation territoriale medico-sociale.
+
+L'utilisateur demande de MODIFIER l'hypothese IA actuelle.
+
+HYPOTHESE IA ACTUELLE:
+- Nom: ${iaHypothesis.name}
+- Antennes: ${JSON.stringify(iaHypothesis.items, null, 2)}
+
+DEMANDE UTILISATEUR: "${userMessage}"
+
+${dataContext}
+
+INSTRUCTIONS:
+1. ANALYSE DE COHERENCE: Verifie si la modification demandee est coherente avec:
+   - La geographie du territoire (Cote-d'Or)
+   - Les zones blanches identifiees
+   - L'objectif d'optimisation (couverture, distance, cout)
+
+2. CONTROLE D'OPTIMISATION: Compare l'impact prevu:
+   - Ameliore-t-elle la couverture?
+   - Reduit-elle les trajets aberrants?
+   - Quel impact economique?
+
+3. DECISION: Si coherent, genere le JSON de modification. Sinon, explique pourquoi et propose une alternative.
+
+REPONSE ATTENDUE (format strict):
+Si modification approuvee, reponds EXACTEMENT avec ce format JSON sur une ligne:
+{"approved": true, "reasoning": "explication courte", "modification": {"name": "nouveau nom", "items": [{"nom": "Antenne X", "coords": [lat, lon], "range": 15000}]}}
+
+Si modification rejetee:
+{"approved": false, "reasoning": "explication du rejet et alternative proposee"}`;
+
+        const response = await callClaudeAPI(modificationPrompt);
+        
+        // Parser la réponse pour voir si c'est une modification approuvée
+        try {
+          // Chercher le JSON dans la réponse
+          const jsonMatch = response.match(/\{[\s\S]*"approved"[\s\S]*\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            
+            if (parsed.approved && parsed.modification) {
+              // Appliquer la modification
+              const newHypothesis = {
+                ...iaHypothesis,
+                name: parsed.modification.name || iaHypothesis.name,
+                items: parsed.modification.items || iaHypothesis.items
+              };
+              setIaHypothesis(newHypothesis);
+              setHyp('hyp3');
+              
+              setChatMessages(prev => [...prev, { 
+                role: 'assistant', 
+                content: `**Modification appliquee**\n\n${parsed.reasoning}\n\nL'hypothese IA a ete mise a jour. Les indicateurs se recalculent automatiquement.`
+              }]);
+            } else {
+              setChatMessages(prev => [...prev, { 
+                role: 'assistant', 
+                content: `**Modification non approuvee**\n\n${parsed.reasoning}`
+              }]);
+            }
+          } else {
+            // Pas de JSON trouvé, afficher la réponse brute
+            setChatMessages(prev => [...prev, { role: 'assistant', content: response }]);
+          }
+        } catch {
+          // Erreur de parsing, afficher la réponse brute
+          setChatMessages(prev => [...prev, { role: 'assistant', content: response }]);
+        }
+      } else {
+        // Mode analyse standard
+        const prompt = `Tu es un Agent IA Partner-level expert en strategie territoriale medico-sociale.
 
 REGLES:
-- Max 100 mots, structure claire
+- Max 80 mots, structure claire
 - JAMAIS d'emoji, JAMAIS de ## ou ###
 - Utilise **texte** pour les chiffres cles
-- Base-toi UNIQUEMENT sur les donnees fournies
-- Structure: Constat factuel > Insight non evident > Recommandation ou question strategique
+- Structure: Constat > Insight > Recommandation/Question
+- Si l'utilisateur demande une modification mais qu'il n'y a pas d'hypothese IA, dis-lui de d'abord generer une hypothese IA via le bouton "Generer"
 
 ${dataContext}
 
 QUESTION: "${userMessage}"`;
-      
-      const response = await callClaudeAPI(prompt);
-      setChatMessages(prev => [...prev, { role: 'assistant', content: response }]);
+        
+        const response = await callClaudeAPI(prompt);
+        setChatMessages(prev => [...prev, { role: 'assistant', content: response }]);
+      }
     } catch (err) {
       setChatMessages(prev => [...prev, { role: 'assistant', content: `Erreur: ${err.message}` }]);
     } finally {
       setChatLoading(false);
     }
-  }, [chatInput, chatLoading, globalDataContext]);
+  }, [chatInput, chatLoading, globalDataContext, iaHypothesis, setIaHypothesis, setHyp]);
 
   // Génération de l'analyse IA globale
   const generateIAAnalysis = useCallback(async () => {
@@ -2619,8 +2671,8 @@ IMPORTANT:
                   <Brain className="w-4 h-4 text-white" />
                 </div>
                 <div>
-                  <p className="text-white font-semibold text-sm">Assistant VyV3</p>
-                  <p className="text-white/70 text-xs">Posez vos questions sur les données</p>
+                  <p className="text-white font-semibold text-sm">Agent VyV3</p>
+                  <p className="text-white/70 text-xs">Analyse & modification hypothèses</p>
                 </div>
               </div>
               <div className="flex gap-1">
