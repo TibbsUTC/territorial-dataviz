@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup, Circle, Tooltip, Marker } from 'react-leaflet';
 import { MapPin, Users, Building2, AlertTriangle, Target, BarChart3, Eye, Table, Map, TrendingUp, Sparkles, PieChart, Brain, Download, RefreshCw, Zap, Save, CheckCircle, XCircle, Loader2, Calculator, Euro, Fuel, Clock, Heart, School, MapPinned, TrendingDown, Banknote, Car } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
@@ -395,16 +395,48 @@ export default function App() {
   const [view, setView] = useState('map'); // 'map', 'table', 'dataviz', 'ia'
   const [showZones, setShowZones] = useState(true);
   
-  // États IA
+  // États IA - Avec persistance localStorage
   const [iaLoading, setIaLoading] = useState(false);
-  const [iaAnalysis, setIaAnalysis] = useState(null);
-  const [iaHypothesis, setIaHypothesis] = useState(null);
+  const [iaAnalysis, setIaAnalysis] = useState(() => {
+    try {
+      const saved = localStorage.getItem('vyv3_ia_analysis');
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
+  const [iaHypothesis, setIaHypothesis] = useState(() => {
+    try {
+      const saved = localStorage.getItem('vyv3_ia_hypothesis');
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
   const [iaSaved, setIaSaved] = useState(false);
   const [iaError, setIaError] = useState(null);
   
   // États Analyse économique
   const [showCostAnalysis, setShowCostAnalysis] = useState(false);
   const [costLoading, setCostLoading] = useState(false);
+
+  // Persistance localStorage pour l'IA
+  useEffect(() => {
+    if (iaAnalysis) {
+      localStorage.setItem('vyv3_ia_analysis', JSON.stringify(iaAnalysis));
+    }
+  }, [iaAnalysis]);
+
+  useEffect(() => {
+    if (iaHypothesis) {
+      localStorage.setItem('vyv3_ia_hypothesis', JSON.stringify(iaHypothesis));
+    }
+  }, [iaHypothesis]);
+
+  // Fonction pour effacer l'hypothèse IA sauvegardée
+  const clearIAData = useCallback(() => {
+    localStorage.removeItem('vyv3_ia_analysis');
+    localStorage.removeItem('vyv3_ia_hypothesis');
+    setIaAnalysis(null);
+    setIaHypothesis(null);
+    if (hyp === 'hyp3') setHyp('current');
+  }, [hyp]);
 
   // Données filtrées
   const data = useMemo(() => {
@@ -1496,13 +1528,26 @@ IMPORTANT:
               </button>
 
               {iaHypothesis && (
-                <button 
-                  onClick={exportHypothesis}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-300 text-slate-700 rounded-lg font-medium hover:bg-slate-50 transition-all"
-                >
-                  <Download className="w-4 h-4" />
-                  Exporter
-                </button>
+                <>
+                  <button 
+                    onClick={exportHypothesis}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-300 text-slate-700 rounded-lg font-medium hover:bg-slate-50 transition-all"
+                  >
+                    <Download className="w-4 h-4" />
+                    Exporter
+                  </button>
+                  <button 
+                    onClick={clearIAData}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-white border border-red-200 text-red-600 rounded-lg font-medium hover:bg-red-50 transition-all"
+                  >
+                    <XCircle className="w-4 h-4" />
+                    Réinitialiser
+                  </button>
+                  <span className="flex items-center gap-1.5 text-slate-400 text-xs">
+                    <Save className="w-3 h-3" />
+                    Sauvegardé localement
+                  </span>
+                </>
               )}
               
               {iaSaved && (
