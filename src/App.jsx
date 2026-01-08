@@ -8,9 +8,12 @@ import 'leaflet/dist/leaflet.css';
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const COMMUNES_COORDS = {
+  // Établissements principaux
   "SEMUR": [47.4833, 4.3333], "SEMUR EN AUXOIS": [47.4833, 4.3333],
   "CHATILLON": [47.8583, 4.5750], "CHATILLON SUR SEINE": [47.8583, 4.5750],
-  "MONTBARD": [47.6250, 4.3333], "BUNCEY": [47.8167, 4.5500],
+  "MONTBARD": [47.6250, 4.3333], 
+  // Communes IME
+  "BUNCEY": [47.8167, 4.5500],
   "LIERNAIS": [47.2167, 4.2833], "SAULIEU": [47.2833, 4.2333],
   "MONTLAY": [47.3167, 4.2000], "STE COLOMBE SUR SEINE": [47.8500, 4.5333],
   "VENAREY": [47.5417, 4.4583], "VENAREY LES LAUMES": [47.5417, 4.4583],
@@ -31,83 +34,124 @@ const COMMUNES_COORDS = {
   "ATHIE": [47.5167, 4.5000], "CREPAND": [47.6500, 4.3500],
   "SAINT REMY": [47.6000, 4.3000], "CHEVIGNY": [47.3000, 5.0000],
   "AIGNAY": [47.7000, 4.7333], "AIGNAY LE DUC": [47.7000, 4.7333],
-  "AVALLON": [47.4900, 3.9000],
+  // UA Avallon (2 enfants rattachés à Semur)
+  "AVALLON": [47.4900, 3.9000], "UA AVALLON": [47.4900, 3.9000],
+  // Communes SESSAD
   "VILLAINES EN DUESMOIS": [47.7000, 4.6500], "SAVOISY": [47.7167, 4.5667],
   "DARCEY": [47.5500, 4.4667], "RECEY SUR OURCE": [47.7833, 4.8500],
   "LANDREVILLE": [48.0667, 4.4667], "MINOT": [47.7000, 4.8333],
   "AUTRICOURT": [47.8333, 4.6167], "LEUGLAY": [47.8167, 4.8500],
   "MOLESME": [47.9500, 4.4333], "BAIGNEUX LES JUIFS": [47.6000, 4.6500],
   "MUSSY LA FOSSE": [47.5500, 4.4500], "MOUTIERS ST JEAN": [47.5833, 4.2833],
+  "BELAN SUR OURCE": [47.8167, 4.6000], "AMPILLY LE SEC": [47.7833, 4.5833],
+  "VOULAINES LES TEMPLIERS": [47.8333, 4.7833],
+  // Scénarios - Nouvelles antennes
   "ROUVRAY": [47.4667, 4.0833], "EPOISSES": [47.5000, 4.1667],
   "GUILLON": [47.5333, 4.0833], "IS SUR TILLE": [47.5167, 5.1000],
   "SELONGEY": [47.5833, 5.1833],
 };
 
-// Données IME - Source : File active VyV3
+// Données IME - Source : PDF File active VyV3 (45 enfants, 2 sans activités)
+// Total actif : 43 enfants
 const IME_DATA = [
+  // Polyhandicap (9 enfants)
   { lieu: "SEMUR", handicap: "Polyhandicap", etablissement: "SEMUR", km: 4 },
   { lieu: "BUNCEY", handicap: "Polyhandicap", etablissement: "CHATILLON", km: 8 },
+  { lieu: "SEMUR", handicap: "Polyhandicap", etablissement: "SEMUR", km: 4 },
   { lieu: "LIERNAIS", handicap: "Polyhandicap", etablissement: "SEMUR", km: 32 },
   { lieu: "SAULIEU", handicap: "Polyhandicap", etablissement: "SEMUR", km: 30 },
   { lieu: "MONTLAY", handicap: "Polyhandicap", etablissement: "SEMUR", km: 20 },
   { lieu: "STE COLOMBE SUR SEINE", handicap: "Polyhandicap", etablissement: "CHATILLON", km: 8 },
   { lieu: "MONTBARD", handicap: "Polyhandicap", etablissement: "MONTBARD", km: 4 },
+  { lieu: "SAULIEU", handicap: "Polyhandicap", etablissement: "SEMUR", km: 30 },
+  // DI et autres (reste)
   { lieu: "CHATILLON", handicap: "DI", etablissement: "CHATILLON", km: 4 },
   { lieu: "MUSSY SUR SEINE", handicap: "DI TSA", etablissement: "CHATILLON", km: 16 },
   { lieu: "CHANCEAU", handicap: "DI", etablissement: "MONTBARD", km: 22 },
+  { lieu: "CHATILLON", handicap: "DI", etablissement: "CHATILLON", km: 4 },
   { lieu: "LE VAL LARREY", handicap: "DI", etablissement: "SEMUR", km: 12 },
+  { lieu: "SEMUR", handicap: "DI TSA", etablissement: "SEMUR", km: 4 },
   { lieu: "MENETREUX", handicap: "DI", etablissement: "MONTBARD", km: 18 },
+  { lieu: "MONTBARD", handicap: "Polyhandicap internat", etablissement: "MONTBARD", km: 4 },
   { lieu: "MARIGNY LE CAHOUET", handicap: "DI", etablissement: "SEMUR", km: 10 },
   { lieu: "MAGNY LA VILLE", handicap: "DI", etablissement: "SEMUR", km: 8 },
+  { lieu: "MONTBARD", handicap: "DI", etablissement: "MONTBARD", km: 4 },
+  { lieu: "STE COLOMBE SUR SEINE", handicap: "DI", etablissement: "CHATILLON", km: 8 },
+  { lieu: "MONTBARD", handicap: "DI troubles associés", etablissement: "MONTBARD", km: 4 },
   { lieu: "ATHIE", handicap: "DI", etablissement: "MONTBARD", km: 20 },
-  { lieu: "CREPAND", handicap: "DI", etablissement: "MONTBARD", km: 12 },
+  { lieu: "CHATILLON", handicap: "DI", etablissement: "CHATILLON", km: 4 },
+  { lieu: "SEMUR", handicap: "DI", etablissement: "SEMUR", km: 4 },
+  { lieu: "LIERNAIS", handicap: "DI", etablissement: "MONTBARD", km: 45 },
+  { lieu: "SEMUR", handicap: "DI TSA", etablissement: "SEMUR", km: 4 },
   { lieu: "VENAREY", handicap: "DI", etablissement: "SEMUR", km: 12 },
   { lieu: "SAINT REMY", handicap: "DI", etablissement: "MONTBARD", km: 10 },
   { lieu: "CHEVIGNY", handicap: "DI", etablissement: "SEMUR", km: 55 },
   { lieu: "AIGNAY", handicap: "DI", etablissement: "CHATILLON", km: 28 },
+  // UA AVALLON - 2 enfants (domicile Avallon, rattachés à SEMUR)
+  { lieu: "AVALLON", handicap: "DI", etablissement: "SEMUR", km: 42 },
+  { lieu: "AVALLON", handicap: "DI", etablissement: "SEMUR", km: 42 },
+  { lieu: "VENAREY", handicap: "DI", etablissement: "SEMUR", km: 12 },
   { lieu: "MONTBARD", handicap: "DI", etablissement: "MONTBARD", km: 4 },
   { lieu: "CHATILLON", handicap: "TSA", etablissement: "CHATILLON", km: 4 },
+  { lieu: "MAGNY LA VILLE", handicap: "DI", etablissement: "SEMUR", km: 8 },
+  { lieu: "SEMUR", handicap: "DI", etablissement: "SEMUR", km: 4 },
+  { lieu: "MAISEY LE DUC", handicap: "DI", etablissement: "CHATILLON", km: 15 },
   { lieu: "BRIANNY", handicap: "DI", etablissement: "SEMUR", km: 10 },
-  { lieu: "VERGIGNY", handicap: "DI", etablissement: "MONTBARD", km: 82 },
   { lieu: "LAMARGELLE", handicap: "DI", etablissement: "MONTBARD", km: 45 },
   { lieu: "ARCY SUR CURE", handicap: "TSA", etablissement: "SEMUR", km: 42 },
+  { lieu: "LAMARGELLE", handicap: "DI", etablissement: "MONTBARD", km: 45 },
+  { lieu: "SEMUR", handicap: "DI", etablissement: "SEMUR", km: 4 },
+  { lieu: "FROLOIS", handicap: "DI", etablissement: "MONTBARD", km: 18 },
   { lieu: "VITTEAUX", handicap: "DI", etablissement: "SEMUR", km: 23 },
   { lieu: "PRECY SOUS THIL", handicap: "DI", etablissement: "SEMUR", km: 15 },
-  { lieu: "ALISE STE REINE", handicap: "DI", etablissement: "SEMUR", km: 16 },
-  { lieu: "VILLEDIEU", handicap: "TSA", etablissement: "CHATILLON", km: 22 },
-  { lieu: "ESCAMPS", handicap: "DI", etablissement: "SEMUR", km: 65 },
-  { lieu: "POUILLENAY", handicap: "DI", etablissement: "SEMUR", km: 13 },
-  { lieu: "POTHIERES", handicap: "DI", etablissement: "CHATILLON", km: 12 },
   { lieu: "BRION SUR OURCE", handicap: "DI", etablissement: "CHATILLON", km: 18 },
-  { lieu: "MAISEY LE DUC", handicap: "DI", etablissement: "CHATILLON", km: 15 },
-  { lieu: "FAVEROLLES", handicap: "DI", etablissement: "CHATILLON", km: 20 },
-  { lieu: "MOLESME", handicap: "DI", etablissement: "CHATILLON", km: 18 },
-  { lieu: "COUTARNOUX", handicap: "DI", etablissement: "SEMUR", km: 35 },
-  { lieu: "MOUTIERS ST JEAN", handicap: "DI", etablissement: "MONTBARD", km: 10 },
+  { lieu: "MENETREUX", handicap: "DI", etablissement: "SEMUR", km: 12 },
+  { lieu: "VILLEDIEU", handicap: "DI", etablissement: "SEMUR", km: 22 },
 ];
 
-// Données SESSAD - Source : File active VyV3
+// Données SESSAD Montbard - Source : PDF File active VyV3
+// Distances = trajet domicile/école (aller)
 const SESSAD_DATA = [
-  { lieu: "VILLAINES EN DUESMOIS", handicap: "DI", ecole: "SAVOISY", km: 8 },
-  { lieu: "DARCEY", handicap: "HM", ecole: "Venarey", km: 6 },
-  { lieu: "RECEY SUR OURCE", handicap: "DI", ecole: "Recey", km: 4 },
-  { lieu: "SEMUR EN AUXOIS", handicap: "HM", ecole: "Semur", km: 4 },
-  { lieu: "LANDREVILLE", handicap: "DI", ecole: "Landreville", km: 4 },
-  { lieu: "MINOT", handicap: "DI", ecole: "Recey", km: 15 },
-  { lieu: "AUTRICOURT", handicap: "DI", ecole: "Belan", km: 10 },
-  { lieu: "CHATILLON SUR SEINE", handicap: "DI", ecole: "Chatillon", km: 4 },
-  { lieu: "LEUGLAY", handicap: "DI", ecole: "Voulaines", km: 12 },
-  { lieu: "MOLESME", handicap: "DI", ecole: "Molesmes", km: 4 },
+  { lieu: "VILLAINES EN DUESMOIS", handicap: "DI", ecole: "SAVOISY", km: 21 },
+  { lieu: "DARCEY", handicap: "HM", ecole: "Venarey", km: 12.4 },
+  { lieu: "RECEY SUR OURCE", handicap: "DI", ecole: "Recey sur ource", km: 28.2 },
+  { lieu: "SEMUR EN AUXOIS", handicap: "HM", ecole: "Semur en auxois", km: 4 },
+  { lieu: "LANDREVILLE", handicap: "DI", ecole: "Landreville", km: 33.2 },
+  { lieu: "MINOT", handicap: "DI", ecole: "Recey sur ource", km: 28.2 },
+  { lieu: "AUTRICOURT", handicap: "DI", ecole: "Belan sur ource", km: 11.6 },
+  { lieu: "CHATILLON SUR SEINE", handicap: "DI", ecole: "Chatillon sur Seine", km: 4 },
+  { lieu: "LEUGLAY", handicap: "DI", ecole: "Voulaines les templiers", km: 17.8 },
+  { lieu: "MOLESME", handicap: "DI", ecole: "Molesmes", km: 35.4 },
   { lieu: "MONTBARD", handicap: "DI", ecole: "Montbard", km: 4 },
-  { lieu: "STE COLOMBE SUR SEINE", handicap: "DI", ecole: "Ste Colombes", km: 4 },
-  { lieu: "BUNCEY", handicap: "DI", ecole: "Ampilly", km: 7 },
-  { lieu: "SAVOISY", handicap: "DI", ecole: "SAVOISY", km: 4 },
-  { lieu: "BAIGNEUX LES JUIFS", handicap: "DI", ecole: "Baigneux", km: 4 },
-  { lieu: "AIGNAY LE DUC", handicap: "DI", ecole: "Aignay", km: 4 },
-  { lieu: "SAULIEU", handicap: "DI", ecole: "Saulieu", km: 4 },
-  { lieu: "ALISE STE REINE", handicap: "DI", ecole: "Venarey", km: 6 },
+  { lieu: "STE COLOMBE SUR SEINE", handicap: "DI", ecole: "Ste Colombes", km: 6 },
+  { lieu: "BUNCEY", handicap: "DI", ecole: "Ampilly le sec", km: 7 },
+  { lieu: "SAVOISY", handicap: "DI", ecole: "SAVOISY", km: 21 },
+  { lieu: "MUSSY LA FOSSE", handicap: "DI", ecole: "Venarey les laumes", km: 12.4 },
+  { lieu: "SEMUR", handicap: "DI", ecole: "Semur en auxois", km: 3 },
+  { lieu: "BAIGNEUX LES JUIFS", handicap: "DI", ecole: "Baigneux les juifs", km: 27.8 },
+  { lieu: "CHATILLON SUR SEINE", handicap: "DI", ecole: "Chatillon sur seine", km: 4 },
+  { lieu: "MONTBARD", handicap: "DI", ecole: "Montbard", km: 4 },
+  { lieu: "MONTBARD", handicap: "DI", ecole: "Montbard", km: 4 },
+  { lieu: "DARCEY", handicap: "DI", ecole: "Venarey les laumes", km: 12.4 },
+  { lieu: "MONTBARD", handicap: "DI", ecole: "Montbard", km: 4 },
+  { lieu: "MONTBARD", handicap: "DI", ecole: "Montbard", km: 4 },
+  { lieu: "ALISE STE REINE", handicap: "DI", ecole: "Venarey les laumes", km: 12.4 },
+  { lieu: "MONTBARD", handicap: "DI", ecole: "Montbard", km: 4 },
+  { lieu: "CHATILLON SUR SEINE", handicap: "DI", ecole: "Chatillon sur Seine", km: 4 },
+  { lieu: "MONTBARD", handicap: "DI", ecole: "Montbard", km: 4 },
+  { lieu: "AIGNAY LE DUC", handicap: "DI", ecole: "Aignay le duc", km: 33.6 },
+  { lieu: "MONTBARD", handicap: "DI", ecole: "Montbard", km: 4 },
+  { lieu: "SEMUR", handicap: "DI", ecole: "Semur en auxois", km: 4 },
+  { lieu: "CHATILLON SUR SEINE", handicap: "DI", ecole: "Chatillon", km: 4 },
+  { lieu: "MONTBARD", handicap: "DI", ecole: "Montbard", km: 4 },
+  { lieu: "MONTBARD", handicap: "DI", ecole: "Montbard", km: 4 },
   { lieu: "MOUTIERS ST JEAN", handicap: "DI", ecole: "Montbard", km: 10 },
-  { lieu: "FAVEROLLES", handicap: "DI", ecole: "Chatillon", km: 18 },
+  { lieu: "MONTBARD", handicap: "DI", ecole: "Montbard", km: 4 },
+  { lieu: "CREPAND", handicap: "DI", ecole: "Montbard", km: 7 },
+  { lieu: "MONTBARD", handicap: "DI", ecole: "Montbard", km: 4 },
+  { lieu: "SAULIEU", handicap: "DI", ecole: "Saulieu", km: 29.3 },
+  { lieu: "ALISE STE REINE", handicap: "DI", ecole: "Venarey les laumes", km: 12.4 },
+  { lieu: "SEMUR", handicap: "DI", ecole: "Semur en auxois", km: 4 },
 ];
 
 // Établissements VyV3 - SANS UA (pas un établissement)
@@ -346,7 +390,7 @@ export default function App() {
                 </button>
               ))}
             </div>
-          </div>
+        </div>
 
           {/* Scénarios */}
           <div className="flex items-center gap-2">
@@ -361,8 +405,8 @@ export default function App() {
                       : 'bg-slate-800 text-white'
                       : 'text-slate-600 hover:bg-slate-50'}`}>
                   {scen.name}
-                </button>
-              ))}
+              </button>
+            ))}
             </div>
           </div>
 
@@ -380,7 +424,7 @@ export default function App() {
           <KPICard icon={Target} label="Couverture scénario" value={`${coverage.percentage}%`} subValue={`${coverage.covered}/${coverage.total} enfants`} color="border-emerald-500" />
           <KPICard icon={AlertTriangle} label="Trajets critiques" value={stats.critiques} subValue="> 50 km" color="border-red-500" />
           <KPICard icon={TrendingUp} label="Trajets proches" value={stats.proches} subValue="< 15 km" color="border-green-500" />
-        </div>
+          </div>
 
         {view === 'map' ? (
           /* ═══════════════════════════════════════════════════════════════════
@@ -397,10 +441,10 @@ export default function App() {
                 minZoom={8}
                 maxZoom={12}
               >
-                <TileLayer
+            <TileLayer
                   url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-                  attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-                />
+              attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+            />
 
                 {/* Zones couverture établissements */}
                 {showZones && ETABLISSEMENTS.map((etab, i) => (
@@ -416,9 +460,9 @@ export default function App() {
                       fillColor: SCENARIOS[scenario].color === 'emerald' ? '#10b981' : '#3b82f6',
                       fillOpacity: 0.12, weight: 2 
                     }} />
-                ))}
+            ))}
 
-                {/* Établissements */}
+            {/* Établissements */}
                 {ETABLISSEMENTS.map((etab, i) => (
                   <CircleMarker key={`etab-${i}`} center={etab.coords} radius={12}
                     pathOptions={{ color: '#fff', fillColor: etab.color, fillOpacity: 1, weight: 3 }}>
@@ -431,8 +475,8 @@ export default function App() {
                         <p className="text-slate-500">{etab.type}</p>
                       </div>
                     </Popup>
-                  </CircleMarker>
-                ))}
+                </CircleMarker>
+              ))}
 
                 {/* Antennes scénario */}
                 {scenario !== 'current' && SCENARIOS[scenario].items.map((item, i) => {
@@ -463,10 +507,10 @@ export default function App() {
                 })}
 
                 {/* Enfants par commune */}
-                {aggregatedData.map((group, i) => {
-                  const avgKm = group.totalKm / group.items.length;
+            {aggregatedData.map((group, i) => {
+              const avgKm = group.totalKm / group.items.length;
                   const size = Math.min(Math.sqrt(group.items.length) * 6 + 4, 20);
-                  return (
+              return (
                     <CircleMarker key={`child-${i}`} center={group.coords} radius={size}
                       pathOptions={{ 
                         color: '#fff', 
@@ -479,7 +523,7 @@ export default function App() {
                       <Tooltip direction="top" offset={[0, -5]}>
                         <span className="text-xs font-medium">{group.lieu} ({group.items.length})</span>
                       </Tooltip>
-                      <Popup>
+                  <Popup>
                         <div className="text-sm min-w-[220px]">
                           <p className="font-bold text-base mb-1">{group.lieu}</p>
                           <div className="flex gap-2 mb-2">
@@ -499,12 +543,12 @@ export default function App() {
                             ))}
                           </div>
                         </div>
-                      </Popup>
-                    </CircleMarker>
-                  );
-                })}
-              </MapContainer>
-            </div>
+                  </Popup>
+                </CircleMarker>
+              );
+            })}
+          </MapContainer>
+        </div>
 
             {/* Sidebar */}
             <div className="space-y-4">
@@ -535,8 +579,8 @@ export default function App() {
                       <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full bg-orange-500" />
                         <span className="text-sm text-slate-700">SESSAD</span>
-                      </div>
-                      <div className="flex items-center gap-2">
+              </div>
+            <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full bg-violet-500" />
                         <span className="text-sm text-slate-700">IME + SESSAD</span>
                       </div>
@@ -557,9 +601,9 @@ export default function App() {
                       <div className="flex items-center gap-1">
                         <div className="w-5 h-5 rounded-full bg-slate-400" />
                         <span className="text-xs text-slate-500">15+</span>
-                      </div>
-                    </div>
-                  </div>
+            </div>
+          </div>
+        </div>
 
                   {scenario !== 'current' && (
                     <div>
@@ -621,9 +665,9 @@ export default function App() {
                     <th className="px-4 py-2 text-left font-semibold text-slate-700">Établissement</th>
                     <th className="px-4 py-2 text-right font-semibold text-slate-700">Distance</th>
                     <th className="px-4 py-2 text-center font-semibold text-slate-700">Statut</th>
-                  </tr>
-                </thead>
-                <tbody>
+              </tr>
+            </thead>
+            <tbody>
                   {data.map((item, i) => (
                     <tr key={i} className="border-b border-slate-100 hover:bg-slate-50">
                       <td className="px-4 py-2 font-medium text-slate-800">{item.lieu}</td>
@@ -640,10 +684,10 @@ export default function App() {
                           item.km > 50 ? 'bg-red-500' : item.km > 30 ? 'bg-orange-500' : item.km > 15 ? 'bg-amber-500' : 'bg-green-500'
                         }`} title={getDistanceLabel(item.km)} />
                       </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                </tr>
+              ))}
+            </tbody>
+          </table>
             </div>
           </div>
         )}
