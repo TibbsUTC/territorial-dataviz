@@ -1491,7 +1491,11 @@ IMPORTANT:
                 {/* Enfants IME par commune */}
                 {(activeTab === 'ALL' || activeTab === 'IME') && aggregatedData.filter(g => g.ime > 0).map((group, i) => {
                   const imeItems = group.items.filter(item => item.source === 'IME');
-                  const avgKm = imeItems.reduce((s, item) => s + item.km, 0) / imeItems.length;
+                  // Récupérer les distances optimisées pour cette commune
+                  const optimizedItems = optimizedData.filter(d => d.lieu.toUpperCase() === group.lieu.toUpperCase() && d.source === 'IME');
+                  const avgKmOriginal = imeItems.reduce((s, item) => s + item.km, 0) / imeItems.length;
+                  const avgKmOptimized = optimizedItems.length > 0 ? optimizedItems.reduce((s, d) => s + d.optimizedKm, 0) / optimizedItems.length : avgKmOriginal;
+                  const displayKm = hyp !== 'current' ? avgKmOptimized : avgKmOriginal;
                   const size = Math.min(Math.sqrt(imeItems.length) * 6 + 4, 20);
                   // Décalage vers la gauche si mode "Tous" et commune mixte
                   const offset = activeTab === 'ALL' && group.sessad > 0 ? -0.008 : 0;
@@ -1506,16 +1510,29 @@ IMPORTANT:
                           <p className="font-bold text-base mb-1 text-blue-700">{group.lieu} - IME</p>
                           <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">{imeItems.length} enfant{imeItems.length > 1 ? 's' : ''}</span>
                           <div className="bg-slate-50 rounded p-2 my-2">
-                            <p className="text-xs"><strong>Distance moy. :</strong> {avgKm.toFixed(1)} km</p>
-                            <p className="text-xs"><strong>Statut :</strong> <span className={`font-semibold ${avgKm > 50 ? 'text-red-600' : avgKm > 30 ? 'text-orange-600' : 'text-green-600'}`}>{getDistanceLabel(avgKm)}</span></p>
+                            <p className="text-xs"><strong>Distance {hyp !== 'current' ? 'optimisée' : 'actuelle'} :</strong> {displayKm.toFixed(1)} km</p>
+                            {hyp !== 'current' && avgKmOptimized < avgKmOriginal && (
+                              <p className="text-xs text-emerald-600">↓ {(avgKmOriginal - avgKmOptimized).toFixed(1)} km économisés</p>
+                            )}
+                            <p className="text-xs"><strong>Statut :</strong> <span className={`font-semibold ${displayKm > 50 ? 'text-red-600' : displayKm > 35 ? 'text-orange-600' : displayKm > 15 ? 'text-amber-600' : 'text-green-600'}`}>{getDistanceLabel(displayKm)}</span></p>
                           </div>
                           <div className="text-xs space-y-1 max-h-[100px] overflow-y-auto">
-                            {imeItems.map((item, idx) => (
+                            {imeItems.map((item, idx) => {
+                              const optItem = optimizedItems.find(o => o.handicap === item.handicap && o.km === item.km);
+                              const optKm = optItem ? optItem.optimizedKm : item.km;
+                              return (
                               <div key={idx} className="flex justify-between border-b border-slate-100 pb-1">
-                                <span>{item.handicap}</span>
-                                <span className="font-medium">{item.km} km</span>
+                                <span>{item.handicap || 'N/A'}</span>
+                                <span className="font-medium">
+                                  {hyp !== 'current' && optKm < item.km ? (
+                                    <><span className="line-through text-slate-400">{item.km}</span> → <span className="text-emerald-600">{optKm}</span> km</>
+                                  ) : (
+                                    <>{item.km} km</>
+                                  )}
+                                </span>
                               </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
                       </Popup>
@@ -1526,37 +1543,54 @@ IMPORTANT:
                 {/* Enfants SESSAD par commune */}
                 {(activeTab === 'ALL' || activeTab === 'SESSAD') && aggregatedData.filter(g => g.sessad > 0).map((group, i) => {
                   const sessadItems = group.items.filter(item => item.source === 'SESSAD');
-                  const avgKm = sessadItems.reduce((s, item) => s + item.km, 0) / sessadItems.length;
+                  // Récupérer les distances optimisées pour cette commune
+                  const optimizedItems = optimizedData.filter(d => d.lieu.toUpperCase() === group.lieu.toUpperCase() && d.source === 'SESSAD');
+                  const avgKmOriginal = sessadItems.reduce((s, item) => s + item.km, 0) / sessadItems.length;
+                  const avgKmOptimized = optimizedItems.length > 0 ? optimizedItems.reduce((s, d) => s + d.optimizedKm, 0) / optimizedItems.length : avgKmOriginal;
+                  const displayKm = hyp !== 'current' ? avgKmOptimized : avgKmOriginal;
                   const size = Math.min(Math.sqrt(sessadItems.length) * 6 + 4, 20);
                   // Décalage vers la droite si mode "Tous" et commune mixte
                   const offset = activeTab === 'ALL' && group.ime > 0 ? 0.008 : 0;
-              return (
+                  return (
                     <CircleMarker key={`sessad-${i}`} center={[group.coords[0], group.coords[1] + offset]} radius={size}
                       pathOptions={{ color: '#fff', fillColor: '#f97316', fillOpacity: 0.9, weight: 1.5 }}>
                       <Tooltip direction="top" offset={[0, -5]}>
                         <span className="text-xs font-medium">{group.lieu} • {sessadItems.length} SESSAD</span>
                       </Tooltip>
-                  <Popup>
+                      <Popup>
                         <div className="text-sm min-w-[220px]">
                           <p className="font-bold text-base mb-1 text-orange-700">{group.lieu} - SESSAD</p>
                           <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded text-xs">{sessadItems.length} enfant{sessadItems.length > 1 ? 's' : ''}</span>
                           <div className="bg-slate-50 rounded p-2 my-2">
-                            <p className="text-xs"><strong>Distance moy. :</strong> {avgKm.toFixed(1)} km</p>
-                            <p className="text-xs"><strong>Statut :</strong> <span className={`font-semibold ${avgKm > 50 ? 'text-red-600' : avgKm > 30 ? 'text-orange-600' : 'text-green-600'}`}>{getDistanceLabel(avgKm)}</span></p>
+                            <p className="text-xs"><strong>Distance {hyp !== 'current' ? 'optimisée' : 'actuelle'} :</strong> {displayKm.toFixed(1)} km</p>
+                            {hyp !== 'current' && avgKmOptimized < avgKmOriginal && (
+                              <p className="text-xs text-emerald-600">↓ {(avgKmOriginal - avgKmOptimized).toFixed(1)} km économisés</p>
+                            )}
+                            <p className="text-xs"><strong>Statut :</strong> <span className={`font-semibold ${displayKm > 50 ? 'text-red-600' : displayKm > 35 ? 'text-orange-600' : displayKm > 15 ? 'text-amber-600' : 'text-green-600'}`}>{getDistanceLabel(displayKm)}</span></p>
                           </div>
                           <div className="text-xs space-y-1 max-h-[100px] overflow-y-auto">
-                            {sessadItems.map((item, idx) => (
+                            {sessadItems.map((item, idx) => {
+                              const optItem = optimizedItems.find(o => o.handicap === item.handicap && o.km === item.km);
+                              const optKm = optItem ? optItem.optimizedKm : item.km;
+                              return (
                               <div key={idx} className="flex justify-between border-b border-slate-100 pb-1">
-                                <span>{item.handicap}</span>
-                                <span className="font-medium">{item.km} km</span>
+                                <span>{item.handicap || 'N/A'}</span>
+                                <span className="font-medium">
+                                  {hyp !== 'current' && optKm < item.km ? (
+                                    <><span className="line-through text-slate-400">{item.km}</span> → <span className="text-emerald-600">{optKm}</span> km</>
+                                  ) : (
+                                    <>{item.km} km</>
+                                  )}
+                                </span>
                               </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
-                  </Popup>
-                </CircleMarker>
-              );
-            })}
+                      </Popup>
+                    </CircleMarker>
+                  );
+                })}
           </MapContainer>
         </div>
 
