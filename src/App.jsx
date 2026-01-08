@@ -1462,15 +1462,19 @@ IMPORTANT:
                 ))}
 
                 {/* Antennes hypothèse */}
-                {hyp !== 'current' && (hyp === 'hyp3' ? iaHypothesis?.items : HYPOTHESES[hyp]?.items)?.map((ant, i) => (
+                {hyp !== 'current' && (hyp === 'hyp3' ? iaHypothesis?.items : HYPOTHESES[hyp]?.items)?.map((ant, i) => {
+                  const directions = ['right', 'left', 'top', 'bottom'];
+                  const direction = directions[i % 4];
+                  const offsets = { right: [12, 0], left: [-12, 0], top: [0, -12], bottom: [0, 12] };
+                  return (
                   <CircleMarker key={`hyp-ant-${i}`} center={ant.coords} radius={10}
                     pathOptions={{ 
                       color: '#fff', 
                       fillColor: hyp === 'hyp1' ? '#10b981' : hyp === 'hyp3' ? '#a855f7' : '#3b82f6',
                       fillOpacity: 1, weight: 2 
                     }}>
-                    <Tooltip permanent direction="top" offset={[0, -8]}>
-                      <span className="font-bold text-xs">{ant.nom}</span>
+                    <Tooltip permanent direction={direction} offset={offsets[direction]} className="antenne-tooltip">
+                      <span className="font-semibold text-xs whitespace-nowrap">{ant.nom}</span>
                     </Tooltip>
                     <Popup>
                       <div className="text-sm">
@@ -1480,7 +1484,8 @@ IMPORTANT:
                       </div>
                     </Popup>
                 </CircleMarker>
-              ))}
+                  );
+              })}
 
                 {/* Enfants par commune */}
             {aggregatedData.map((group, i) => {
@@ -2639,6 +2644,19 @@ IMPORTANT:
         }
         .custom-tooltip-green::before {
           border-top-color: #059669 !important;
+        }
+        .antenne-tooltip {
+          background: white !important;
+          color: #1e293b !important;
+          border: 1px solid #e2e8f0 !important;
+          padding: 4px 8px !important;
+          border-radius: 6px !important;
+          font-size: 11px !important;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+          white-space: nowrap !important;
+        }
+        .antenne-tooltip::before {
+          display: none !important;
         }
         .leaflet-popup-content-wrapper {
           border-radius: 12px;
