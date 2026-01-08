@@ -245,7 +245,7 @@ const HYPOTHESES = {
     items: [] 
   },
   hyp1: {
-    name: "Hypothèse 1 : Maillage Proximité",
+    name: "Hypothèse 1",
     description: "3 antennes pour verrouiller les bassins isolés",
     items: [
       { 
@@ -272,7 +272,7 @@ const HYPOTHESES = {
     ]
   },
   hyp2: {
-    name: "Hypothèse 2 : Conquête & Verrouillage",
+    name: "Hypothèse 2",
     description: "4 antennes pour conquérir l'Est et verrouiller l'Ouest",
     items: [
       { 
