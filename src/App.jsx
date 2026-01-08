@@ -1487,39 +1487,67 @@ IMPORTANT:
                   );
               })}
 
-                {/* Enfants par commune */}
-            {aggregatedData.map((group, i) => {
-              const avgKm = group.totalKm / group.items.length;
-                  const size = Math.min(Math.sqrt(group.items.length) * 6 + 4, 20);
-              return (
-                    <CircleMarker key={`child-${i}`} center={group.coords} radius={size}
-                      pathOptions={{ 
-                        color: '#fff', 
-                        fillColor: activeTab === 'ALL' 
-                          ? (group.ime > 0 && group.sessad > 0 ? '#8b5cf6' : group.ime > 0 ? '#3b82f6' : '#f97316')
-                          : activeTab === 'IME' ? '#3b82f6' : '#f97316',
-                        fillOpacity: 0.85, 
-                        weight: 1.5 
-                      }}>
+                {/* Enfants IME par commune */}
+                {(activeTab === 'ALL' || activeTab === 'IME') && aggregatedData.filter(g => g.ime > 0).map((group, i) => {
+                  const imeItems = group.items.filter(item => item.source === 'IME');
+                  const avgKm = imeItems.reduce((s, item) => s + item.km, 0) / imeItems.length;
+                  const size = Math.min(Math.sqrt(imeItems.length) * 6 + 4, 20);
+                  // Décalage vers la gauche si mode "Tous" et commune mixte
+                  const offset = activeTab === 'ALL' && group.sessad > 0 ? -0.008 : 0;
+                  return (
+                    <CircleMarker key={`ime-${i}`} center={[group.coords[0], group.coords[1] + offset]} radius={size}
+                      pathOptions={{ color: '#fff', fillColor: '#3b82f6', fillOpacity: 0.9, weight: 1.5 }}>
                       <Tooltip direction="top" offset={[0, -5]}>
-                        <span className="text-xs font-medium">{group.lieu} ({group.items.length})</span>
+                        <span className="text-xs font-medium">{group.lieu} • {imeItems.length} IME</span>
                       </Tooltip>
-                  <Popup>
+                      <Popup>
                         <div className="text-sm min-w-[220px]">
-                          <p className="font-bold text-base mb-1">{group.lieu}</p>
-                          <div className="flex gap-2 mb-2">
-                            {group.ime > 0 && <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">{group.ime} IME</span>}
-                            {group.sessad > 0 && <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded text-xs">{group.sessad} SESSAD</span>}
-                          </div>
-                          <div className="bg-slate-50 rounded p-2 mb-2">
+                          <p className="font-bold text-base mb-1 text-blue-700">{group.lieu} - IME</p>
+                          <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">{imeItems.length} enfant{imeItems.length > 1 ? 's' : ''}</span>
+                          <div className="bg-slate-50 rounded p-2 my-2">
                             <p className="text-xs"><strong>Distance moy. :</strong> {avgKm.toFixed(1)} km</p>
                             <p className="text-xs"><strong>Statut :</strong> <span className={`font-semibold ${avgKm > 50 ? 'text-red-600' : avgKm > 30 ? 'text-orange-600' : 'text-green-600'}`}>{getDistanceLabel(avgKm)}</span></p>
                           </div>
-                          <div className="text-xs space-y-1 max-h-[120px] overflow-y-auto">
-                            {group.items.map((item, idx) => (
+                          <div className="text-xs space-y-1 max-h-[100px] overflow-y-auto">
+                            {imeItems.map((item, idx) => (
                               <div key={idx} className="flex justify-between border-b border-slate-100 pb-1">
                                 <span>{item.handicap}</span>
-                                <span className="font-medium">{item.km} km → {item.etablissement || item.ecole}</span>
+                                <span className="font-medium">{item.km} km</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </Popup>
+                    </CircleMarker>
+                  );
+                })}
+
+                {/* Enfants SESSAD par commune */}
+                {(activeTab === 'ALL' || activeTab === 'SESSAD') && aggregatedData.filter(g => g.sessad > 0).map((group, i) => {
+                  const sessadItems = group.items.filter(item => item.source === 'SESSAD');
+                  const avgKm = sessadItems.reduce((s, item) => s + item.km, 0) / sessadItems.length;
+                  const size = Math.min(Math.sqrt(sessadItems.length) * 6 + 4, 20);
+                  // Décalage vers la droite si mode "Tous" et commune mixte
+                  const offset = activeTab === 'ALL' && group.ime > 0 ? 0.008 : 0;
+              return (
+                    <CircleMarker key={`sessad-${i}`} center={[group.coords[0], group.coords[1] + offset]} radius={size}
+                      pathOptions={{ color: '#fff', fillColor: '#f97316', fillOpacity: 0.9, weight: 1.5 }}>
+                      <Tooltip direction="top" offset={[0, -5]}>
+                        <span className="text-xs font-medium">{group.lieu} • {sessadItems.length} SESSAD</span>
+                      </Tooltip>
+                  <Popup>
+                        <div className="text-sm min-w-[220px]">
+                          <p className="font-bold text-base mb-1 text-orange-700">{group.lieu} - SESSAD</p>
+                          <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded text-xs">{sessadItems.length} enfant{sessadItems.length > 1 ? 's' : ''}</span>
+                          <div className="bg-slate-50 rounded p-2 my-2">
+                            <p className="text-xs"><strong>Distance moy. :</strong> {avgKm.toFixed(1)} km</p>
+                            <p className="text-xs"><strong>Statut :</strong> <span className={`font-semibold ${avgKm > 50 ? 'text-red-600' : avgKm > 30 ? 'text-orange-600' : 'text-green-600'}`}>{getDistanceLabel(avgKm)}</span></p>
+                          </div>
+                          <div className="text-xs space-y-1 max-h-[100px] overflow-y-auto">
+                            {sessadItems.map((item, idx) => (
+                              <div key={idx} className="flex justify-between border-b border-slate-100 pb-1">
+                                <span>{item.handicap}</span>
+                                <span className="font-medium">{item.km} km</span>
                               </div>
                             ))}
                           </div>
@@ -1553,18 +1581,15 @@ IMPORTANT:
                   <div>
                     <p className="text-xs text-slate-500 font-medium mb-2">DOMICILES ENFANTS</p>
                     <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full bg-blue-500" />
-                        <span className="text-sm text-slate-700">IME</span>
-            </div>
+                        <span className="text-sm text-slate-700">IME (70 enfants)</span>
+                      </div>
                       <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full bg-orange-500" />
-                        <span className="text-sm text-slate-700">SESSAD</span>
-              </div>
-            <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-violet-500" />
-                        <span className="text-sm text-slate-700">IME + SESSAD</span>
+                        <span className="text-sm text-slate-700">SESSAD (40 enfants)</span>
                       </div>
+                      <p className="text-xs text-slate-400 mt-1 italic">Communes mixtes : 2 points côte à côte</p>
           </div>
         </div>
 
