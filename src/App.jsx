@@ -94,7 +94,8 @@ const COMMUNES_COORDS = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// DONNÉES EXACTES DU CSV - 112 enfants (72 Établissement + 40 PMO/SESSAD)
+// DONNÉES SOURCES - File active VyV3 Bourgogne
+// Total: 110 enfants (70 IME/CME + 40 SESSAD)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // CME Montbard - 9 enfants Polyhandicap
@@ -136,7 +137,7 @@ const IME_CHATILLON_DATA = [
   { lieu: "AIGNAY", handicap: "DI", etablissement: "IME Châtillon", km: 33.6 },
 ];
 
-// IME Semur - 41 enfants
+// IME Semur - 39 enfants
 const IME_SEMUR_DATA = [
   { lieu: "UA AVALLON", handicap: "DI", etablissement: "IME Semur", km: 43.5 },
   { lieu: "VENAREY", handicap: "DI", etablissement: "IME Semur", km: 12.3 },
@@ -179,7 +180,7 @@ const IME_SEMUR_DATA = [
   { lieu: "POUILLENAY", handicap: "DI", etablissement: "IME Semur", km: 13 },
 ];
 
-// Combine tous les IME/CME = 72 enfants
+// Combine tous les IME/CME = 70 enfants (9 CME + 22 Châtillon + 39 Semur)
 const IME_DATA = [...CME_DATA, ...IME_CHATILLON_DATA, ...IME_SEMUR_DATA];
 
 // PMO/SESSAD - 40 enfants
@@ -1301,7 +1302,7 @@ IMPORTANT:
                 <BarChart3 className="w-6 h-6 text-blue-600" />
                 Cartographie Territoriale VyV3
               </h1>
-              <p className={`text-sm ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Analyse des besoins vs offre médico-sociale • Côte-d'Or</p>
+              <p className={`text-sm ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Optimisation de la couverture territoriale • Côte-d'Or (21)</p>
         </div>
             <div className="flex items-center gap-3">
               {/* Toggle Vue */}
@@ -1583,13 +1584,13 @@ IMPORTANT:
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full bg-blue-500" />
-                        <span className="text-sm text-slate-700">IME (70 enfants)</span>
+                        <span className="text-sm text-slate-700">IME/CME ({IME_DATA.length})</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full bg-orange-500" />
-                        <span className="text-sm text-slate-700">SESSAD (40 enfants)</span>
+                        <span className="text-sm text-slate-700">SESSAD ({SESSAD_DATA.length})</span>
                       </div>
-                      <p className="text-xs text-slate-400 mt-1 italic">Communes mixtes : 2 points côte à côte</p>
+                      <p className="text-xs text-slate-400 mt-2 italic">Taille = nombre d'enfants</p>
           </div>
         </div>
 
@@ -2638,9 +2639,14 @@ IMPORTANT:
           </div>
         )}
 
-        {/* Footer */}
-        <div className="mt-6 text-center text-xs text-slate-400">
-          <p>Cartographie VyV3 • Données sources auditables • {new Date().toLocaleDateString('fr-FR')}</p>
+        {/* Footer - Auditabilité */}
+        <div className="mt-8 pt-4 border-t border-slate-200 text-center text-xs text-slate-400">
+          <p className="mb-1">
+            <strong>Cartographie Territoriale VyV3</strong> • Données file active • {IME_DATA.length + SESSAD_DATA.length} enfants anonymisés
+          </p>
+          <p>
+            Sources : PDF VyV3 Bourgogne Patrimoine & Offre PE • Budget transport : 800 000€/an • Extraction : {new Date().toLocaleDateString('fr-FR')}
+          </p>
         </div>
       </main>
 
