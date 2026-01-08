@@ -562,6 +562,9 @@ export default function App() {
     const economieNette = economieTaxi - coutLoyerAn;
     const equivalentEducateurs = Math.floor(economieNette / COST_CONSTANTS.SALAIRE_EDUCATEUR);
     
+    // Coût actuel en équivalent postes (pour comparaison)
+    const coutActuelEnPostes = Math.floor(coutTaxiActuel / COST_CONSTANTS.SALAIRE_EDUCATEUR);
+    
     // ROI
     const roiMois = investAmenagement > 0 ? Math.ceil(investAmenagement / (economieNette / 12)) : 0;
     
@@ -603,9 +606,10 @@ export default function App() {
       // Bilan
       economieNette: Math.round(economieNette),
       equivalentEducateurs,
+      coutActuelEnPostes,
       roiMois,
       
-      // Punchline
+      // Comparaison
       gaspillageKmJour: Math.round(kmJourActuel - kmJourOptimise),
     };
   }, [stats, optimizedData, hyp, iaHypothesis]);
@@ -1366,49 +1370,81 @@ IMPORTANT:
           <div className="space-y-6">
             {/* Synthèse Économique - Style Consulting Premium */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="bg-slate-800 px-6 py-4">
+              <div className={`px-6 py-4 ${hyp === 'current' ? 'bg-slate-800' : 'bg-emerald-700'}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-slate-700 flex items-center justify-center">
-                      <BarChart3 className="w-5 h-5 text-slate-300" />
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${hyp === 'current' ? 'bg-slate-700' : 'bg-emerald-600'}`}>
+                      <BarChart3 className="w-5 h-5 text-white/80" />
                     </div>
                     <div>
-                      <p className="text-slate-400 text-xs font-medium tracking-wider uppercase">Synthèse Économique</p>
-                      <h2 className="text-white text-lg font-semibold">État des lieux transport</h2>
+                      <p className="text-white/60 text-xs font-medium tracking-wider uppercase">Synthèse Économique</p>
+                      <h2 className="text-white text-lg font-semibold">
+                        {hyp === 'current' ? 'État actuel' : `Projection ${hyp === 'hyp3' ? 'Hypothèse IA' : `Hypothèse ${hyp.replace('hyp', '')}`}`}
+                      </h2>
                     </div>
                   </div>
-                  <span className="px-3 py-1 bg-slate-700 text-slate-300 text-xs font-medium rounded-full">
-                    Base annuelle : {COST_CONSTANTS.JOURS_TRAVAIL_AN} jours
+                  <span className={`px-3 py-1 text-xs font-medium rounded-full ${hyp === 'current' ? 'bg-slate-700 text-slate-300' : 'bg-emerald-600 text-white'}`}>
+                    Base : {COST_CONSTANTS.JOURS_TRAVAIL_AN} jours/an
                   </span>
                 </div>
               </div>
               <div className="p-6">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-slate-50 rounded-lg p-4 border border-slate-100">
-                    <p className="text-xs text-slate-500 font-medium mb-1">Kilométrage annuel</p>
-                    <p className="text-2xl font-bold text-slate-800">{economicAnalysis.kmAnActuel.toLocaleString()}</p>
-                    <p className="text-xs text-slate-400">km parcourus</p>
+                  <div className={`rounded-lg p-4 border ${hyp !== 'current' ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-100'}`}>
+                    <p className={`text-xs font-medium mb-1 ${hyp !== 'current' ? 'text-emerald-600' : 'text-slate-500'}`}>Kilométrage annuel</p>
+                    <p className={`text-2xl font-bold ${hyp !== 'current' ? 'text-emerald-700' : 'text-slate-800'}`}>
+                      {hyp === 'current' ? economicAnalysis.kmAnActuel.toLocaleString() : economicAnalysis.kmAnOptimise.toLocaleString()}
+                    </p>
+                    <p className={`text-xs ${hyp !== 'current' ? 'text-emerald-500' : 'text-slate-400'}`}>
+                      {hyp !== 'current' && <span className="font-medium">−{economicAnalysis.kmEconomisesAn.toLocaleString()} km</span>}
+                      {hyp === 'current' && 'km parcourus'}
+                    </p>
                   </div>
-                  <div className="bg-slate-50 rounded-lg p-4 border border-slate-100">
-                    <p className="text-xs text-slate-500 font-medium mb-1">Coût transport</p>
-                    <p className="text-2xl font-bold text-slate-800">{(economicAnalysis.coutTaxiActuel / 1000).toFixed(0)}k€</p>
-                    <p className="text-xs text-slate-400">budget annuel</p>
+                  <div className={`rounded-lg p-4 border ${hyp !== 'current' ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-100'}`}>
+                    <p className={`text-xs font-medium mb-1 ${hyp !== 'current' ? 'text-emerald-600' : 'text-slate-500'}`}>Coût transport</p>
+                    <p className={`text-2xl font-bold ${hyp !== 'current' ? 'text-emerald-700' : 'text-slate-800'}`}>
+                      {hyp === 'current' ? (economicAnalysis.coutTaxiActuel / 1000).toFixed(0) : (economicAnalysis.coutTaxiOptimise / 1000).toFixed(0)}k€
+                    </p>
+                    <p className={`text-xs ${hyp !== 'current' ? 'text-emerald-500' : 'text-slate-400'}`}>
+                      {hyp !== 'current' && <span className="font-medium">−{(economicAnalysis.economieTaxi / 1000).toFixed(0)}k€/an</span>}
+                      {hyp === 'current' && 'budget annuel'}
+                    </p>
                   </div>
                   <div className="bg-slate-50 rounded-lg p-4 border border-slate-100">
                     <p className="text-xs text-slate-500 font-medium mb-1">Empreinte carbone</p>
-                    <p className="text-2xl font-bold text-slate-800">{economicAnalysis.co2Actuel}</p>
-                    <p className="text-xs text-slate-400">tonnes CO₂/an</p>
+                    <p className="text-2xl font-bold text-slate-800">{hyp === 'current' ? economicAnalysis.co2Actuel : (parseFloat(economicAnalysis.co2Actuel) - parseFloat(economicAnalysis.co2Economise)).toFixed(1)}</p>
+                    <p className="text-xs text-slate-400">
+                      {hyp !== 'current' && <span className="text-emerald-500 font-medium">−{economicAnalysis.co2Economise}t</span>}
+                      {hyp === 'current' && 'tonnes CO₂/an'}
+                    </p>
                   </div>
-                  <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
-                    <p className="text-xs text-amber-600 font-medium mb-1">Trajets longs ({'>'}45min)</p>
-                    <p className="text-2xl font-bold text-amber-700">{economicAnalysis.enfantsPenibilite}</p>
-                    <p className="text-xs text-amber-500">enfants concernés</p>
+                  <div className={`rounded-lg p-4 border ${economicAnalysis.enfantsPenibiliteOptimise > 0 && hyp !== 'current' ? 'bg-amber-50 border-amber-200' : hyp !== 'current' ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
+                    <p className={`text-xs font-medium mb-1 ${hyp !== 'current' && economicAnalysis.enfantsPenibiliteOptimise === 0 ? 'text-emerald-600' : 'text-amber-600'}`}>Trajets longs ({'>'}45min)</p>
+                    <p className={`text-2xl font-bold ${hyp !== 'current' && economicAnalysis.enfantsPenibiliteOptimise === 0 ? 'text-emerald-700' : 'text-amber-700'}`}>
+                      {hyp === 'current' ? economicAnalysis.enfantsPenibilite : economicAnalysis.enfantsPenibiliteOptimise}
+                    </p>
+                    <p className={`text-xs ${hyp !== 'current' && economicAnalysis.reductionPenibilite > 0 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                      {hyp !== 'current' && economicAnalysis.reductionPenibilite > 0 && <span className="font-medium">−{economicAnalysis.reductionPenibilite} enfants</span>}
+                      {(hyp === 'current' || economicAnalysis.reductionPenibilite === 0) && 'enfants concernés'}
+                    </p>
                   </div>
                 </div>
-                <p className="text-sm text-slate-500 mt-4 pt-4 border-t border-slate-100">
-                  <span className="font-medium text-slate-600">Insight clé :</span> Le kilométrage quotidien actuel ({economicAnalysis.kmJourActuel.toLocaleString()} km/jour) 
-                  représente un coût d'opportunité significatif, équivalent au financement de {Math.max(2, economicAnalysis.equivalentEducateurs)} postes d'accompagnement à temps plein.
-                </p>
+                <div className="mt-4 pt-4 border-t border-slate-100">
+                  {hyp === 'current' ? (
+                    <p className="text-sm text-slate-500">
+                      <span className="font-medium text-slate-600">Constat :</span> Le budget transport actuel ({(economicAnalysis.coutTaxiActuel / 1000).toFixed(0)}k€/an) 
+                      représente l'équivalent de <span className="font-semibold text-slate-700">{economicAnalysis.coutActuelEnPostes} postes</span> d'accompagnement à temps plein 
+                      (base : {COST_CONSTANTS.SALAIRE_EDUCATEUR.toLocaleString()}€/an chargé).
+                    </p>
+                  ) : (
+                    <p className="text-sm text-slate-500">
+                      <span className="font-medium text-emerald-600">Potentiel d'optimisation :</span> Avec cette hypothèse, 
+                      économie nette de <span className="font-semibold text-emerald-700">{economicAnalysis.economieNette.toLocaleString()}€/an</span>, 
+                      soit l'équivalent de <span className="font-semibold text-emerald-700">{economicAnalysis.equivalentEducateurs} postes</span> supplémentaires 
+                      (après déduction des loyers antennes).
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
 
