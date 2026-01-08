@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup, Circle, Tooltip, Marker } from 'react-leaflet';
-import { MapPin, Users, Building2, AlertTriangle, Target, BarChart3, Eye, Table, Map, TrendingUp } from 'lucide-react';
+import { MapPin, Users, Building2, AlertTriangle, Target, BarChart3, Eye, Table, Map, TrendingUp, Sparkles } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -161,36 +161,22 @@ const ETABLISSEMENTS = [
   { nom: "CME Montbard", coords: [47.6250, 4.3333], type: "CME", color: "#b91c1c" },
 ];
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// SCÉNARIOS DE TRANSFORMATION - Basés sur l'analyse territoriale
-// ═══════════════════════════════════════════════════════════════════════════════
-
-const SCENARIOS = {
-  current: {
-    name: "État Actuel",
-    description: "Situation actuelle : 3 pôles historiques (Châtillon, Semur, Montbard)",
-    color: "slate",
-    items: []
-  },
-  hypothesis1: {
-    name: "Hypothèse 1 : Maillage Proximité",
-    description: "3 nouvelles antennes fixes pour verrouiller les bassins isolés",
-    color: "emerald",
+// Hypothèses de nouvelles antennes (labels simples)
+const HYPOTHESES = {
+  current: { items: [] },
+  hyp1: {
     items: [
-      { nom: "Antenne SUD (Saulieu)", coords: [47.2833, 4.2333], zone: "SUD", type: "antenna", range: 15, justification: "Capter Liernais, Montlay, Saulieu (isolement Morvan)" },
-      { nom: "Antenne EST (Venarey)", coords: [47.5417, 4.4583], zone: "EST", type: "antenna", range: 15, justification: "Nœud ferroviaire, pivot pour Vitteaux, Darcey, Alise" },
-      { nom: "Antenne NORD-EST (Recey)", coords: [47.7833, 4.8500], zone: "NORD-EST", type: "antenna", range: 15, justification: "Secteur Aignay/Recey/Leuglay trop loin de Châtillon" },
+      { nom: "Saulieu", coords: [47.2833, 4.2333], range: 15 },
+      { nom: "Venarey", coords: [47.5417, 4.4583], range: 15 },
+      { nom: "Recey", coords: [47.7833, 4.8500], range: 15 },
     ]
   },
-  hypothesis2: {
-    name: "Hypothèse 2 : Conquête & Verrouillage",
-    description: "4 antennes pour conquérir l'Est et verrouiller l'Ouest",
-    color: "blue",
+  hyp2: {
     items: [
-      { nom: "Antenne SUD (Saulieu)", coords: [47.2833, 4.2333], zone: "SUD", type: "antenna", range: 15, justification: "Isolement Morvan" },
-      { nom: "Antenne OUEST (Époisses)", coords: [47.5000, 4.1667], zone: "OUEST", type: "antenna", range: 15, justification: "Zone blanche Semur-Avallon (Rouvray, Guillon)" },
-      { nom: "Antenne EST (Is-sur-Tille)", coords: [47.5167, 5.1000], zone: "EST", type: "antenna", range: 15, justification: "Conquête zone périurbaine Dijon" },
-      { nom: "Antenne NORD-EST (Selongey)", coords: [47.5833, 5.1833], zone: "NORD-EST", type: "antenna", range: 12, justification: "Conquête Nord-Est vers Dijon" },
+      { nom: "Saulieu", coords: [47.2833, 4.2333], range: 15 },
+      { nom: "Époisses", coords: [47.5000, 4.1667], range: 15 },
+      { nom: "Is-sur-Tille", coords: [47.5167, 5.1000], range: 15 },
+      { nom: "Selongey", coords: [47.5833, 5.1833], range: 12 },
     ]
   }
 };
@@ -254,7 +240,7 @@ const KPICard = ({ icon: Icon, label, value, subValue, color }) => (
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('ALL');
-  const [scenario, setScenario] = useState('current');
+  const [hyp, setHyp] = useState('current'); // 'current', 'hyp1', 'hyp2'
   const [view, setView] = useState('map'); // 'map' ou 'table'
   const [showZones, setShowZones] = useState(true);
 
@@ -290,34 +276,30 @@ export default function App() {
     return Object.values(grouped);
   }, [data]);
 
-  // Calcul de couverture
+  // Calcul de couverture (enfants à moins de 15km d'un établissement OU d'une antenne hypothèse)
   const coverage = useMemo(() => {
-    const scenarioItems = SCENARIOS[scenario].items;
-    
+    const hypItems = HYPOTHESES[hyp].items;
     const covered = data.filter(d => {
       const coords = getCoords(d.lieu);
       if (!coords) return false;
-      
       // Couvert par établissement existant ?
-      const coveredByExisting = ETABLISSEMENTS.some(etab => {
+      const byEtab = ETABLISSEMENTS.some(etab => {
         const dist = haversineDistance(coords[0], coords[1], etab.coords[0], etab.coords[1]);
         return dist < 15;
       });
-      if (coveredByExisting) return true;
-      
-      // Couvert par nouvelle antenne ?
-      return scenarioItems.some(item => {
-        const dist = haversineDistance(coords[0], coords[1], item.coords[0], item.coords[1]);
-        return dist < item.range;
+      if (byEtab) return true;
+      // Couvert par antenne hypothèse ?
+      return hypItems.some(ant => {
+        const dist = haversineDistance(coords[0], coords[1], ant.coords[0], ant.coords[1]);
+        return dist < ant.range;
       });
     });
-    
     return {
       covered: covered.length,
       total: data.length,
-      percentage: ((covered.length / data.length) * 100).toFixed(0)
+      percentage: data.length > 0 ? ((covered.length / data.length) * 100).toFixed(0) : 0
     };
-  }, [data, scenario]);
+  }, [data, hyp]);
 
   // Statistiques
   const stats = useMemo(() => ({
@@ -327,19 +309,6 @@ export default function App() {
     proches: data.filter(d => d.km < 15).length,
     communes: aggregatedData.length,
   }), [data, aggregatedData]);
-
-  // Enfants par antenne du scénario
-  const antennaStats = useMemo(() => {
-    return SCENARIOS[scenario].items.map(item => {
-      const enfants = data.filter(d => {
-        const coords = getCoords(d.lieu);
-        if (!coords) return false;
-        const dist = haversineDistance(coords[0], coords[1], item.coords[0], item.coords[1]);
-        return dist < item.range;
-      });
-      return { ...item, enfants: enfants.length };
-    });
-  }, [data, scenario]);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -387,27 +356,28 @@ export default function App() {
                   {tab.color && <span className={`w-2 h-2 rounded-full ${tab.color}`} />}
                   {tab.label}
                   <span className="text-xs opacity-70">({tab.count})</span>
-                </button>
-              ))}
-            </div>
-        </div>
-
-          {/* Scénarios */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-slate-600">Scénario :</span>
-            <div className="flex bg-white rounded-lg border border-slate-200 p-1">
-              {Object.entries(SCENARIOS).map(([key, scen]) => (
-                <button key={key} onClick={() => setScenario(key)}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all
-                    ${scenario === key 
-                      ? scen.color === 'emerald' ? 'bg-emerald-600 text-white' 
-                      : scen.color === 'blue' ? 'bg-blue-600 text-white'
-                      : 'bg-slate-800 text-white'
-                      : 'text-slate-600 hover:bg-slate-50'}`}>
-                  {scen.name}
               </button>
             ))}
             </div>
+          </div>
+
+          {/* Hypothèses */}
+          <div className="flex bg-white rounded-lg border border-slate-200 p-1">
+            <button onClick={() => setHyp('current')}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all
+                ${hyp === 'current' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
+              État actuel
+            </button>
+            <button onClick={() => setHyp('hyp1')}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all
+                ${hyp === 'hyp1' ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
+              Hypothèse 1
+            </button>
+            <button onClick={() => setHyp('hyp2')}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all
+                ${hyp === 'hyp2' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
+              Hypothèse 2
+            </button>
           </div>
 
           {/* Toggle zones */}
@@ -415,13 +385,22 @@ export default function App() {
             <input type="checkbox" checked={showZones} onChange={() => setShowZones(!showZones)} className="rounded border-slate-300" />
             <span className="text-sm text-slate-600">Zones de couverture</span>
           </label>
+
+          {/* Fake IA Button */}
+          <button 
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-lg font-medium text-sm shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 hover:scale-105 transition-all cursor-pointer"
+            onClick={() => {}}
+          >
+            <Sparkles className="w-4 h-4" />
+            Insight IA
+          </button>
         </div>
 
         {/* KPIs */}
         <div className="grid grid-cols-5 gap-4 mb-6">
           <KPICard icon={Users} label="Enfants suivis" value={stats.total} subValue={`${stats.communes} communes`} color="border-blue-500" />
           <KPICard icon={MapPin} label="Distance moyenne" value={`${stats.avgKm} km`} subValue="Aller simple" color="border-amber-500" />
-          <KPICard icon={Target} label="Couverture scénario" value={`${coverage.percentage}%`} subValue={`${coverage.covered}/${coverage.total} enfants`} color="border-emerald-500" />
+          <KPICard icon={Target} label="Couverture" value={`${coverage.percentage}%`} subValue={`${coverage.covered}/${coverage.total} enfants`} color="border-emerald-500" />
           <KPICard icon={AlertTriangle} label="Trajets critiques" value={stats.critiques} subValue="> 50 km" color="border-red-500" />
           <KPICard icon={TrendingUp} label="Trajets proches" value={stats.proches} subValue="< 15 km" color="border-green-500" />
           </div>
@@ -434,10 +413,10 @@ export default function App() {
             {/* Carte */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden" style={{ height: '650px' }}>
               <MapContainer 
-                center={[47.55, 4.45]} 
+                center={[47.55, 4.30]} 
                 zoom={9} 
                 style={{ height: '100%', width: '100%' }}
-                maxBounds={[[46.8, 3.4], [48.3, 5.5]]}
+                maxBounds={[[46.8, 3.4], [48.3, 5.8]]}
                 minZoom={8}
                 maxZoom={12}
               >
@@ -450,16 +429,6 @@ export default function App() {
                 {showZones && ETABLISSEMENTS.map((etab, i) => (
                   <Circle key={`zone-${i}`} center={etab.coords} radius={15000} 
                     pathOptions={{ color: etab.color, fillColor: etab.color, fillOpacity: 0.08, weight: 2, dashArray: '8,4' }} />
-                ))}
-
-                {/* Zones couverture scénario */}
-                {showZones && scenario !== 'current' && SCENARIOS[scenario].items.map((item, i) => (
-                  <Circle key={`scen-zone-${i}`} center={item.coords} radius={item.range * 1000}
-                    pathOptions={{ 
-                      color: SCENARIOS[scenario].color === 'emerald' ? '#10b981' : '#3b82f6',
-                      fillColor: SCENARIOS[scenario].color === 'emerald' ? '#10b981' : '#3b82f6',
-                      fillOpacity: 0.12, weight: 2 
-                    }} />
             ))}
 
             {/* Établissements */}
@@ -478,33 +447,35 @@ export default function App() {
                 </CircleMarker>
               ))}
 
-                {/* Antennes scénario */}
-                {scenario !== 'current' && SCENARIOS[scenario].items.map((item, i) => {
-                  const stat = antennaStats.find(a => a.nom === item.nom);
-                  return (
-                    <CircleMarker key={`ant-${i}`} center={item.coords} radius={10}
-                      pathOptions={{ 
-                        color: '#fff', 
-                        fillColor: SCENARIOS[scenario].color === 'emerald' ? '#10b981' : '#3b82f6',
-                        fillOpacity: 1, weight: 2 
-                      }}>
-                      <Tooltip permanent direction="top" offset={[0, -8]} className="custom-tooltip-green">
-                        <span className="font-bold text-xs">{item.nom.replace('Antenne ', '')}</span>
-                      </Tooltip>
-                      <Popup>
-                        <div className="text-sm min-w-[200px]">
-                          <p className="font-bold text-base">{item.nom}</p>
-                          <p className="text-slate-500 mb-2">{item.zone}</p>
-                          <div className="bg-slate-50 rounded p-2 mb-2">
-                            <p className="text-xs"><strong>Rayon :</strong> {item.range} km</p>
-                            <p className="text-xs"><strong>Enfants captés :</strong> {stat?.enfants || 0}</p>
-                          </div>
-                          <p className="text-xs text-slate-600 italic">{item.justification}</p>
-                        </div>
-                      </Popup>
-                    </CircleMarker>
-                  );
-                })}
+                {/* Zones antennes hypothèse */}
+                {showZones && hyp !== 'current' && HYPOTHESES[hyp].items.map((ant, i) => (
+                  <Circle key={`hyp-zone-${i}`} center={ant.coords} radius={ant.range * 1000}
+                    pathOptions={{ 
+                      color: hyp === 'hyp1' ? '#10b981' : '#3b82f6',
+                      fillColor: hyp === 'hyp1' ? '#10b981' : '#3b82f6',
+                      fillOpacity: 0.12, weight: 2 
+                    }} />
+                ))}
+
+                {/* Antennes hypothèse */}
+                {hyp !== 'current' && HYPOTHESES[hyp].items.map((ant, i) => (
+                  <CircleMarker key={`hyp-ant-${i}`} center={ant.coords} radius={10}
+                    pathOptions={{ 
+                      color: '#fff', 
+                      fillColor: hyp === 'hyp1' ? '#10b981' : '#3b82f6',
+                      fillOpacity: 1, weight: 2 
+                    }}>
+                    <Tooltip permanent direction="top" offset={[0, -8]}>
+                      <span className="font-bold text-xs">{ant.nom}</span>
+                    </Tooltip>
+                    <Popup>
+                      <div className="text-sm">
+                        <p className="font-bold">{ant.nom}</p>
+                        <p className="text-slate-500">Antenne proposée • {ant.range} km</p>
+                      </div>
+                    </Popup>
+                  </CircleMarker>
+                ))}
 
                 {/* Enfants par commune */}
             {aggregatedData.map((group, i) => {
@@ -605,44 +576,38 @@ export default function App() {
           </div>
         </div>
 
-                  {scenario !== 'current' && (
-                    <div>
-                      <p className="text-xs text-slate-500 font-medium mb-2">NOUVELLES ANTENNES</p>
-                      <div className="flex items-center gap-2">
-                        <div className={`w-4 h-4 rounded-full ${SCENARIOS[scenario].color === 'emerald' ? 'bg-emerald-500' : 'bg-blue-500'} border-2 border-white shadow`} />
-                        <span className="text-sm text-slate-700">Antenne proposée</span>
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
 
-              {/* Scénario actif */}
-              <div className={`rounded-xl shadow-sm border p-4 ${
-                scenario === 'current' ? 'bg-slate-50 border-slate-200' :
-                SCENARIOS[scenario].color === 'emerald' ? 'bg-emerald-50 border-emerald-200' : 'bg-blue-50 border-blue-200'
-              }`}>
-                <h3 className="font-bold text-slate-800 mb-2">{SCENARIOS[scenario].name}</h3>
-                <p className="text-sm text-slate-600 mb-3">{SCENARIOS[scenario].description}</p>
-                
-                {scenario !== 'current' && (
-                  <div className="space-y-2">
-                    {antennaStats.map((item, i) => (
-                      <div key={i} className="bg-white rounded-lg p-2 border border-slate-200">
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium text-sm">{item.nom.replace('Antenne ', '')}</span>
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${
-                            item.enfants > 5 ? 'bg-green-100 text-green-700' : 
-                            item.enfants > 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'
-                          }`}>
-                            {item.enfants} enfants
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-500 mt-1">{item.justification}</p>
-                      </div>
-                    ))}
+              {/* Résumé distances */}
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+                <h3 className="font-bold text-slate-800 mb-3">Répartition distances</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-slate-600 flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full bg-green-500" /> &lt; 15 km
+                    </span>
+                    <span className="font-medium">{stats.proches}</span>
                   </div>
-                )}
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-slate-600 flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full bg-amber-500" /> 15-30 km
+                    </span>
+                    <span className="font-medium">{data.filter(d => d.km >= 15 && d.km < 30).length}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-slate-600 flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full bg-orange-500" /> 30-50 km
+                    </span>
+                    <span className="font-medium">{data.filter(d => d.km >= 30 && d.km < 50).length}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-slate-600 flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full bg-red-500" /> &gt; 50 km
+                    </span>
+                    <span className="font-medium">{stats.critiques}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
