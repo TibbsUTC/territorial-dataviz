@@ -1,16 +1,68 @@
-# React + Vite
+# Territorial Dataviz
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A React + Vite application for territorial data visualization.
 
-Currently, two official plugins are available:
+## Prerequisites
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Node.js 20.19+ or 22.12+ (see `.nvmrc` for recommended version)
+- npm or yarn
 
-## React Compiler
+## Getting Started
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+1. Install dependencies:
+```bash
+npm install
+```
 
-## Expanding the ESLint configuration
+2. Start the development server:
+```bash
+npm run dev
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+3. Build for production:
+```bash
+npm run build
+```
+
+## Deployment
+
+### GitHub
+
+1. Create a new repository on GitHub
+2. Push your code:
+```bash
+git remote add origin https://github.com/YOUR_USERNAME/territorial-dataviz.git
+git push -u origin main
+```
+
+### Vercel
+
+This project is configured for Vercel deployment. You can deploy in two ways:
+
+#### Option 1: Via Vercel Dashboard (Recommended)
+1. Go to [vercel.com](https://vercel.com) and sign in
+2. Click "New Project"
+3. Import your GitHub repository
+4. Vercel will auto-detect the Vite configuration
+5. Click "Deploy"
+
+#### Option 2: Via Vercel CLI
+1. Install Vercel CLI:
+```bash
+npm i -g vercel
+```
+
+2. Deploy:
+```bash
+vercel
+```
+
+The `vercel.json` configuration file is already set up for optimal Vite deployment.
+
+## Tech Stack
+
+- React 19
+- Vite 7
+- Leaflet & React-Leaflet (maps)
+- Recharts (charts)
+- Lucide React (icons)
