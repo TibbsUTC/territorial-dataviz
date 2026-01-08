@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup, Circle, Tooltip, Marker } from 'react-leaflet';
-import { MapPin, Users, Building2, AlertTriangle, Target, BarChart3, Eye, Table, Map, TrendingUp, Sparkles, PieChart } from 'lucide-react';
+import { MapPin, Users, Building2, AlertTriangle, Target, BarChart3, Eye, Table, Map, TrendingUp, Sparkles, PieChart, Brain, Download, RefreshCw, Zap, Save, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -328,11 +328,52 @@ const KPICard = ({ icon: Icon, label, value, subValue, color }) => (
 // APPLICATION PRINCIPALE
 // ═══════════════════════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// API CLAUDE - Configuration
+// ═══════════════════════════════════════════════════════════════════════════════
+const CLAUDE_API_KEY = import.meta.env.VITE_CLAUDE_API_KEY || '';
+
+async function callClaudeAPI(prompt) {
+  if (!CLAUDE_API_KEY) {
+    throw new Error('Clé API Claude non configurée. Ajoutez VITE_CLAUDE_API_KEY dans .env.local');
+  }
+  
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': CLAUDE_API_KEY,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 4096,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+  
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Erreur API Claude: ${err}`);
+  }
+  
+  const data = await response.json();
+  return data.content[0].text;
+}
+
 export default function App() {
   const [activeTab, setActiveTab] = useState('ALL');
-  const [hyp, setHyp] = useState('current'); // 'current', 'hyp1', 'hyp2'
-  const [view, setView] = useState('map'); // 'map' ou 'table'
+  const [hyp, setHyp] = useState('current'); // 'current', 'hyp1', 'hyp2', 'hyp3'
+  const [view, setView] = useState('map'); // 'map', 'table', 'dataviz', 'ia'
   const [showZones, setShowZones] = useState(true);
+  
+  // États IA
+  const [iaLoading, setIaLoading] = useState(false);
+  const [iaAnalysis, setIaAnalysis] = useState(null);
+  const [iaHypothesis, setIaHypothesis] = useState(null);
+  const [iaSaved, setIaSaved] = useState(false);
+  const [iaError, setIaError] = useState(null);
 
   // Données filtrées
   const data = useMemo(() => {
@@ -368,7 +409,14 @@ export default function App() {
 
   // Données optimisées selon hypothèse (distance = min entre actuel et nouvelle antenne)
   const optimizedData = useMemo(() => {
-    const hypItems = HYPOTHESES[hyp].items;
+    // Récupérer les items de l'hypothèse actuelle (inclut hyp3 si générée)
+    let hypItems = [];
+    if (hyp === 'hyp3' && iaHypothesis) {
+      hypItems = iaHypothesis.items || [];
+    } else if (HYPOTHESES[hyp]) {
+      hypItems = HYPOTHESES[hyp].items;
+    }
+    
     return data.map(d => {
       const coords = getCoords(d.lieu);
       if (!coords) return { ...d, optimizedKm: d.km };
@@ -386,7 +434,7 @@ export default function App() {
       
       return { ...d, optimizedKm: minDist };
     });
-  }, [data, hyp]);
+  }, [data, hyp, iaHypothesis]);
 
   // Calcul de couverture (enfants à moins de 15km)
   const coverage = useMemo(() => {
@@ -397,6 +445,15 @@ export default function App() {
       percentage: optimizedData.length > 0 ? ((covered / optimizedData.length) * 100).toFixed(0) : 0
     };
   }, [optimizedData]);
+
+  // Hypothèses dynamiques (inclut hyp3 si générée par IA)
+  const allHypotheses = useMemo(() => {
+    const base = { ...HYPOTHESES };
+    if (iaHypothesis) {
+      base.hyp3 = iaHypothesis;
+    }
+    return base;
+  }, [iaHypothesis]);
 
   // Statistiques enrichies - TOUTES basées sur distances optimisées
   const stats = useMemo(() => {
@@ -421,6 +478,172 @@ export default function App() {
     };
   }, [optimizedData, data, aggregatedData]);
 
+  // Génération de l'analyse IA globale
+  const generateIAAnalysis = useCallback(async () => {
+    setIaLoading(true);
+    setIaError(null);
+    
+    // Préparation du contexte de données pour Claude
+    const dataContext = {
+      totalEnfants: data.length,
+      ime: IME_DATA.length,
+      sessad: SESSAD_DATA.length,
+      communes: aggregatedData.length,
+      distanceMoyenne: stats.avgKm,
+      trajetsAberrants: stats.aberrants,
+      trajetsCritiques: stats.critiques,
+      trajetsProches: stats.proches,
+      kmJour: stats.kmTotal,
+      couverture: coverage.percentage,
+      etablissements: ETABLISSEMENTS.map(e => ({ nom: e.nom, coords: e.coords })),
+      communesDetails: aggregatedData.slice(0, 30).map(g => ({
+        nom: g.lieu,
+        enfants: g.items.length,
+        distMoy: (g.totalKm / g.items.length).toFixed(1),
+        coords: g.coords
+      })),
+      hypothese1: HYPOTHESES.hyp1,
+      hypothese2: HYPOTHESES.hyp2,
+      zoneBlanches: aggregatedData.filter(g => (g.totalKm / g.items.length) > 35).map(g => g.lieu)
+    };
+
+    const prompt = `Tu es un expert en stratégie territoriale médico-sociale et en optimisation de couverture territoriale.
+
+CONTEXTE:
+- Territoire: Côte-d'Or (département 21), France
+- Organisation: VyV3 gère des établissements pour enfants en situation de handicap
+- Problématique: Optimiser la couverture territoriale et réduire les distances de transport
+
+DONNÉES ACTUELLES:
+${JSON.stringify(dataContext, null, 2)}
+
+ÉTABLISSEMENTS EXISTANTS:
+- IME Châtillon (47.8583, 4.5750)
+- IME Semur (47.4833, 4.3333) 
+- CME Montbard (47.6250, 4.3333)
+
+HYPOTHÈSES DÉJÀ PROPOSÉES:
+1. Hypothèse 1: ${JSON.stringify(HYPOTHESES.hyp1.items.map(a => ({ nom: a.nom, coords: a.coords, zone: a.zone })))}
+2. Hypothèse 2: ${JSON.stringify(HYPOTHESES.hyp2.items.map(a => ({ nom: a.nom, coords: a.coords, zone: a.zone })))}
+
+ZONES BLANCHES IDENTIFIÉES (communes > 35km moy.):
+${dataContext.zoneBlanches.join(', ')}
+
+MISSION:
+1. Analyse les données et identifie les patterns, forces et faiblesses du maillage actuel
+2. Évalue objectivement les hypothèses 1 et 2
+3. PROPOSE UNE HYPOTHÈSE 3 INNOVANTE différente des 2 premières, qui pourrait:
+   - Mieux couvrir les zones blanches
+   - Réduire encore plus les distances
+   - Proposer une approche créative (mobile, hub, partenariat, etc.)
+
+FORMAT DE RÉPONSE OBLIGATOIRE (JSON):
+{
+  "analyse": {
+    "resume": "3-4 phrases résumant la situation",
+    "forces": ["force 1", "force 2"],
+    "faiblesses": ["faiblesse 1", "faiblesse 2"],
+    "patterns": ["pattern 1 identifié", "pattern 2"]
+  },
+  "evaluationHyp1": {
+    "score": 7,
+    "avantages": ["avantage 1"],
+    "inconvenients": ["inconvénient 1"]
+  },
+  "evaluationHyp2": {
+    "score": 6,
+    "avantages": ["avantage 1"],
+    "inconvenients": ["inconvénient 1"]
+  },
+  "hypothese3": {
+    "name": "Hypothèse 3 : [Nom créatif]",
+    "description": "Description courte",
+    "approche": "Explication de l'approche innovante",
+    "items": [
+      {
+        "nom": "Nom de l'antenne/point",
+        "coords": [latitude, longitude],
+        "range": 15,
+        "zone": "NOM_ZONE",
+        "justification": "Pourquoi ce choix"
+      }
+    ],
+    "beneficesAttendus": ["bénéfice 1", "bénéfice 2"],
+    "score": 8
+  },
+  "recommandation": "Ta recommandation finale en 2-3 phrases"
+}
+
+IMPORTANT: 
+- Utilise UNIQUEMENT des coordonnées GPS valides en Côte-d'Or (lat: 47.0-48.0, lon: 3.5-5.5)
+- L'hypothèse 3 doit être DIFFÉRENTE et INNOVANTE par rapport aux 2 premières
+- Réponds UNIQUEMENT en JSON valide, sans markdown ni texte autour`;
+
+    try {
+      const response = await callClaudeAPI(prompt);
+      
+      // Parser la réponse JSON
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error('Réponse non-JSON reçue');
+      
+      const analysisData = JSON.parse(jsonMatch[0]);
+      setIaAnalysis(analysisData);
+      
+      // Créer l'hypothèse 3 dans le format attendu
+      if (analysisData.hypothese3) {
+        const hyp3 = {
+          name: analysisData.hypothese3.name,
+          description: analysisData.hypothese3.description,
+          approche: analysisData.hypothese3.approche,
+          items: analysisData.hypothese3.items.map(item => ({
+            nom: item.nom,
+            coords: item.coords,
+            range: item.range || 15,
+            zone: item.zone,
+            justification: item.justification
+          })),
+          beneficesAttendus: analysisData.hypothese3.beneficesAttendus,
+          score: analysisData.hypothese3.score,
+          generatedAt: new Date().toISOString()
+        };
+        setIaHypothesis(hyp3);
+        setIaSaved(false);
+      }
+    } catch (err) {
+      console.error('Erreur IA:', err);
+      setIaError(err.message);
+    } finally {
+      setIaLoading(false);
+    }
+  }, [data, aggregatedData, stats, coverage]);
+
+  // Export de l'hypothèse générée
+  const exportHypothesis = useCallback(() => {
+    if (!iaHypothesis) return;
+    
+    const exportData = {
+      hypothese: iaHypothesis,
+      analyse: iaAnalysis,
+      exportedAt: new Date().toISOString(),
+      context: {
+        totalEnfants: data.length,
+        couverture: coverage.percentage,
+        distanceMoyenne: stats.avgKm
+      }
+    };
+    
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `hypothese-ia-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setIaSaved(true);
+  }, [iaHypothesis, iaAnalysis, data, coverage, stats]);
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
@@ -442,6 +665,9 @@ export default function App() {
                 </button>
                 <button onClick={() => setView('dataviz')} className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1.5 ${view === 'dataviz' ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}>
                   <PieChart className="w-4 h-4" /> Analyse
+                </button>
+                <button onClick={() => setView('ia')} className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1.5 ${view === 'ia' ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow' : 'text-slate-500'}`}>
+                  <Brain className="w-4 h-4" /> IA
                 </button>
                 <button onClick={() => setView('table')} className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1.5 ${view === 'table' ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}>
                   <Table className="w-4 h-4" /> Données
@@ -473,7 +699,7 @@ export default function App() {
               </button>
             ))}
             </div>
-          </div>
+        </div>
 
           {/* Hypothèses */}
           <div className="flex bg-white rounded-lg border border-slate-200 p-1">
@@ -481,7 +707,7 @@ export default function App() {
               className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all
                 ${hyp === 'current' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
               État actuel
-            </button>
+              </button>
             <button onClick={() => setHyp('hyp1')}
               className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all
                 ${hyp === 'hyp1' ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
@@ -492,6 +718,14 @@ export default function App() {
                 ${hyp === 'hyp2' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
               Hypothèse 2
             </button>
+            {iaHypothesis && (
+              <button onClick={() => setHyp('hyp3')}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-1
+                  ${hyp === 'hyp3' ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
+                <Sparkles className="w-3 h-3" />
+                Hypothèse IA
+              </button>
+            )}
           </div>
 
           {/* Toggle zones */}
@@ -500,13 +734,13 @@ export default function App() {
             <span className="text-sm text-slate-600">Zones de couverture</span>
           </label>
 
-          {/* Fake IA Button */}
+          {/* IA Button */}
           <button 
             className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-lg font-medium text-sm shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 hover:scale-105 transition-all cursor-pointer"
-            onClick={() => {}}
+            onClick={() => setView('ia')}
           >
             <Sparkles className="w-4 h-4" />
-            Insight IA
+            {iaHypothesis ? 'Voir Insight IA' : 'Générer Insight IA'}
           </button>
         </div>
 
@@ -518,7 +752,7 @@ export default function App() {
           <KPICard icon={AlertTriangle} label="Flux aberrants" value={stats.aberrants} subValue="> 35 km aller" color="border-orange-500" />
           <KPICard icon={AlertTriangle} label="Trajets critiques" value={stats.critiques} subValue="> 50 km aller" color="border-red-500" />
           <KPICard icon={TrendingUp} label="Trajets proches" value={stats.proches} subValue="< 15 km" color="border-green-500" />
-          </div>
+              </div>
 
         {view === 'map' ? (
           /* ═══════════════════════════════════════════════════════════════════
@@ -563,21 +797,21 @@ export default function App() {
               ))}
 
                 {/* Zones antennes hypothèse */}
-                {showZones && hyp !== 'current' && HYPOTHESES[hyp].items.map((ant, i) => (
+                {showZones && hyp !== 'current' && (hyp === 'hyp3' ? iaHypothesis?.items : HYPOTHESES[hyp]?.items)?.map((ant, i) => (
                   <Circle key={`hyp-zone-${i}`} center={ant.coords} radius={ant.range * 1000}
                     pathOptions={{ 
-                      color: hyp === 'hyp1' ? '#10b981' : '#3b82f6',
-                      fillColor: hyp === 'hyp1' ? '#10b981' : '#3b82f6',
+                      color: hyp === 'hyp1' ? '#10b981' : hyp === 'hyp3' ? '#a855f7' : '#3b82f6',
+                      fillColor: hyp === 'hyp1' ? '#10b981' : hyp === 'hyp3' ? '#a855f7' : '#3b82f6',
                       fillOpacity: 0.12, weight: 2 
                     }} />
                 ))}
 
                 {/* Antennes hypothèse */}
-                {hyp !== 'current' && HYPOTHESES[hyp].items.map((ant, i) => (
+                {hyp !== 'current' && (hyp === 'hyp3' ? iaHypothesis?.items : HYPOTHESES[hyp]?.items)?.map((ant, i) => (
                   <CircleMarker key={`hyp-ant-${i}`} center={ant.coords} radius={10}
                     pathOptions={{ 
                       color: '#fff', 
-                      fillColor: hyp === 'hyp1' ? '#10b981' : '#3b82f6',
+                      fillColor: hyp === 'hyp1' ? '#10b981' : hyp === 'hyp3' ? '#a855f7' : '#3b82f6',
                       fillOpacity: 1, weight: 2 
                     }}>
                     <Tooltip permanent direction="top" offset={[0, -8]}>
@@ -587,10 +821,11 @@ export default function App() {
                       <div className="text-sm">
                         <p className="font-bold">{ant.nom}</p>
                         <p className="text-slate-500">Antenne proposée • {ant.range} km</p>
+                        {ant.justification && <p className="text-xs text-slate-400 mt-1 italic">{ant.justification}</p>}
                       </div>
                     </Popup>
-                  </CircleMarker>
-                ))}
+                </CircleMarker>
+              ))}
 
                 {/* Enfants par commune */}
             {aggregatedData.map((group, i) => {
@@ -651,17 +886,17 @@ export default function App() {
                       <div className="flex items-center gap-2">
                         <div className="w-4 h-4 rounded-full bg-red-700 border-2 border-white shadow" />
                         <span className="text-sm text-slate-700">IME / CME (pôle existant)</span>
-                      </div>
+              </div>
                     </div>
                   </div>
 
                   <div>
                     <p className="text-xs text-slate-500 font-medium mb-2">DOMICILES ENFANTS</p>
                     <div className="space-y-1.5">
-                      <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full bg-blue-500" />
                         <span className="text-sm text-slate-700">IME</span>
-                      </div>
+            </div>
                       <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full bg-orange-500" />
                         <span className="text-sm text-slate-700">SESSAD</span>
@@ -670,8 +905,8 @@ export default function App() {
                         <div className="w-3 h-3 rounded-full bg-violet-500" />
                         <span className="text-sm text-slate-700">IME + SESSAD</span>
                       </div>
-                    </div>
-                  </div>
+          </div>
+        </div>
 
                   <div>
                     <p className="text-xs text-slate-500 font-medium mb-2">TAILLE = NOMBRE D'ENFANTS</p>
@@ -699,13 +934,13 @@ export default function App() {
                 <h3 className={`font-bold mb-3 flex items-center gap-2 ${stats.critiques > 0 ? 'text-red-800' : 'text-green-800'}`}>
                   <AlertTriangle className="w-4 h-4" /> 
                   {stats.critiques > 0 ? 'Top Flux Aberrants' : '✓ Aucun trajet critique'}
-                </h3>
+            </h3>
                 <div className="space-y-2 max-h-[180px] overflow-y-auto">
                   {optimizedData.filter(d => d.optimizedKm > 50).sort((a, b) => b.optimizedKm - a.optimizedKm).slice(0, 8).map((d, i) => (
                     <div key={i} className="flex justify-between items-center text-sm">
                       <span className="text-red-700 truncate flex-1">{d.lieu}</span>
                       <span className="text-red-600 font-bold ml-2">{d.optimizedKm} km</span>
-                    </div>
+          </div>
                   ))}
                   {stats.critiques === 0 && hyp !== 'current' && (
                     <p className="text-sm text-green-700">🎉 L'hypothèse élimine tous les trajets &gt;50km !</p>
@@ -878,22 +1113,23 @@ export default function App() {
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
               <h3 className="font-bold text-slate-800 mb-2">Comparaison des scénarios</h3>
               <p className="text-sm text-slate-500 mb-4">Cliquez sur un scénario pour voir son impact en temps réel sur tous les indicateurs</p>
-              <div className="grid grid-cols-3 gap-4">
-                {Object.entries(HYPOTHESES).map(([key, h]) => {
+              <div className={`grid gap-4 ${iaHypothesis ? 'grid-cols-4' : 'grid-cols-3'}`}>
+                {Object.entries(allHypotheses).map(([key, h]) => {
+                  const items = h.items || [];
                   // Calcul couverture pour cette hypothèse
                   const hypCoverage = data.filter(d => {
                     const coords = getCoords(d.lieu);
                     if (!coords) return false;
                     const byEtab = ETABLISSEMENTS.some(etab => haversineDistance(coords[0], coords[1], etab.coords[0], etab.coords[1]) < 15);
                     if (byEtab) return true;
-                    return h.items.some(ant => haversineDistance(coords[0], coords[1], ant.coords[0], ant.coords[1]) < ant.range);
+                    return items.some(ant => haversineDistance(coords[0], coords[1], ant.coords[0], ant.coords[1]) < (ant.range || 15));
                   }).length;
                   // Calcul km économisés
                   const optimizedForHyp = data.map(d => {
                     const coords = getCoords(d.lieu);
                     if (!coords) return d.km;
                     let minDist = d.km;
-                    h.items.forEach(ant => {
+                    items.forEach(ant => {
                       const dist = haversineDistance(coords[0], coords[1], ant.coords[0], ant.coords[1]);
                       if (dist < minDist) minDist = dist;
                     });
@@ -905,23 +1141,33 @@ export default function App() {
                   
                   const pct = ((hypCoverage / data.length) * 100).toFixed(0);
                   const isActive = hyp === key;
+                  const isIA = key === 'hyp3';
                   return (
                     <div key={key} 
                       onClick={() => setHyp(key)}
                       className={`p-4 rounded-xl border-2 cursor-pointer transition-all hover:shadow-md ${
-                        isActive ? 'border-blue-500 bg-blue-50 shadow-md' : 'border-slate-200 hover:border-slate-300'
+                        isActive 
+                          ? isIA 
+                            ? 'border-violet-500 bg-violet-50 shadow-md' 
+                            : 'border-blue-500 bg-blue-50 shadow-md' 
+                          : isIA 
+                            ? 'border-violet-200 hover:border-violet-400' 
+                            : 'border-slate-200 hover:border-slate-300'
                       }`}>
-                      <p className="text-sm font-bold text-slate-800 mb-1">{h.name}</p>
+                      <div className="flex items-center gap-2 mb-1">
+                        {isIA && <Sparkles className="w-4 h-4 text-violet-600" />}
+                        <p className="text-sm font-bold text-slate-800">{h.name}</p>
+                      </div>
                       <p className="text-xs text-slate-500 mb-3">{h.description}</p>
                       <p className="text-3xl font-bold text-slate-800">{pct}%</p>
                       <p className="text-sm text-slate-500">{hypCoverage}/{data.length} enfants &lt;15km</p>
-                      {h.items.length > 0 && (
+                      {items.length > 0 && (
                         <div className="mt-3 pt-3 border-t border-slate-200">
-                          <p className="text-xs text-emerald-600 font-medium">+{h.items.length} antennes</p>
-                          <p className="text-xs text-emerald-600">−{kmSaved} km/jour économisés</p>
+                          <p className={`text-xs font-medium ${isIA ? 'text-violet-600' : 'text-emerald-600'}`}>+{items.length} antennes</p>
+                          <p className={`text-xs ${isIA ? 'text-violet-600' : 'text-emerald-600'}`}>−{kmSaved} km/jour économisés</p>
                         </div>
                       )}
-                      {isActive && <p className="text-xs text-blue-600 mt-2 font-medium">✓ Scénario actif</p>}
+                      {isActive && <p className={`text-xs mt-2 font-medium ${isIA ? 'text-violet-600' : 'text-blue-600'}`}>✓ Scénario actif</p>}
                     </div>
                   );
                 })}
@@ -930,15 +1176,18 @@ export default function App() {
 
             {/* Détail des antennes par hypothèse */}
             {hyp !== 'current' && (
-              <div className="bg-slate-50 rounded-xl border border-slate-200 p-6">
-                <h3 className="font-bold text-slate-800 mb-4">{HYPOTHESES[hyp].name} - Détail des antennes</h3>
+              <div className={`rounded-xl border p-6 ${hyp === 'hyp3' ? 'bg-violet-50 border-violet-200' : 'bg-slate-50 border-slate-200'}`}>
+                <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                  {hyp === 'hyp3' && <Sparkles className="w-5 h-5 text-violet-600" />}
+                  {hyp === 'hyp3' ? iaHypothesis?.name : HYPOTHESES[hyp]?.name} - Détail des antennes
+                </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {HYPOTHESES[hyp].items.map((ant, i) => (
-                    <div key={i} className={`bg-white rounded-lg p-4 border-l-4 ${hyp === 'hyp1' ? 'border-emerald-500' : 'border-blue-500'}`}>
+                  {(hyp === 'hyp3' ? iaHypothesis?.items : HYPOTHESES[hyp]?.items)?.map((ant, i) => (
+                    <div key={i} className={`bg-white rounded-lg p-4 border-l-4 ${hyp === 'hyp1' ? 'border-emerald-500' : hyp === 'hyp3' ? 'border-violet-500' : 'border-blue-500'}`}>
                       <p className="font-bold text-slate-800">{ant.nom}</p>
                       <p className="text-xs text-slate-500 mb-2">Zone {ant.zone} • Rayon {ant.range}km</p>
                       <p className="text-xs text-slate-600 italic">{ant.justification}</p>
-                      <p className="text-xs text-slate-400 mt-2">📍 [{ant.coords[0]}, {ant.coords[1]}]</p>
+                      <p className="text-xs text-slate-400 mt-2">📍 [{ant.coords?.[0]?.toFixed(4)}, {ant.coords?.[1]?.toFixed(4)}]</p>
                     </div>
                   ))}
                 </div>
@@ -977,6 +1226,280 @@ export default function App() {
                 <p className="text-green-700">🎉 L'hypothèse sélectionnée ramène tous les trajets sous 50km.</p>
               )}
             </div>
+          </div>
+        ) : view === 'ia' ? (
+          /* ═══════════════════════════════════════════════════════════════════
+             VUE IA - Analyse et Génération d'Hypothèse
+          ═══════════════════════════════════════════════════════════════════ */
+          <div className="space-y-6">
+            {/* Header IA */}
+            <div className="bg-gradient-to-r from-violet-600 via-fuchsia-600 to-pink-600 rounded-xl p-6 text-white relative overflow-hidden">
+              <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxjaXJjbGUgY3g9IjIwIiBjeT0iMjAiIHI9IjEiIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iLjEiLz48L2c+PC9zdmc+')] opacity-30"></div>
+              <div className="relative">
+                <div className="flex items-center gap-3 mb-2">
+                  <Brain className="w-8 h-8" />
+                  <h2 className="text-2xl font-bold">Intelligence Artificielle - Analyse Territoriale</h2>
+                </div>
+                <p className="text-white/80">Claude AI analyse vos données et propose une hypothèse innovante pour optimiser votre couverture territoriale.</p>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-4">
+              <button 
+                onClick={generateIAAnalysis}
+                disabled={iaLoading}
+                className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium text-white shadow-lg transition-all
+                  ${iaLoading 
+                    ? 'bg-slate-400 cursor-not-allowed' 
+                    : 'bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:shadow-xl hover:scale-105'}`}
+              >
+                {iaLoading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Analyse en cours...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-5 h-5" />
+                    {iaAnalysis ? 'Regénérer l\'analyse' : 'Lancer l\'analyse IA'}
+                  </>
+                )}
+              </button>
+
+              {iaHypothesis && (
+                <>
+                  <button 
+                    onClick={exportHypothesis}
+                    className="flex items-center gap-2 px-6 py-3 bg-white border-2 border-emerald-500 text-emerald-700 rounded-xl font-medium hover:bg-emerald-50 transition-all"
+                  >
+                    <Download className="w-5 h-5" />
+                    Exporter l'hypothèse
+                  </button>
+                  {iaSaved && (
+                    <span className="flex items-center gap-2 text-emerald-600 font-medium">
+                      <CheckCircle className="w-5 h-5" />
+                      Exporté !
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Erreur */}
+            {iaError && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+                <XCircle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold text-red-800">Erreur lors de l'analyse</p>
+                  <p className="text-red-600 text-sm">{iaError}</p>
+                  <p className="text-red-500 text-xs mt-2">Vérifiez que la clé API Claude est configurée dans les variables d'environnement (VITE_CLAUDE_API_KEY).</p>
+                </div>
+              </div>
+            )}
+
+            {/* État initial - pas encore d'analyse */}
+            {!iaAnalysis && !iaLoading && !iaError && (
+              <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl p-12 text-center">
+                <Brain className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-slate-700 mb-2">Prêt à analyser vos données</h3>
+                <p className="text-slate-500 max-w-lg mx-auto mb-6">
+                  L'IA va analyser {data.length} enfants, {aggregatedData.length} communes, 
+                  et les hypothèses existantes pour proposer une nouvelle stratégie territoriale innovante.
+                </p>
+                <ul className="text-left max-w-md mx-auto space-y-2 text-sm text-slate-600">
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-emerald-500" />
+                    Analyse des forces et faiblesses du maillage actuel
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-emerald-500" />
+                    Évaluation objective des hypothèses 1 et 2
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-emerald-500" />
+                    Génération d'une hypothèse 3 innovante avec coordonnées GPS
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-emerald-500" />
+                    Comparaison temps réel sur tous les indicateurs
+                  </li>
+                </ul>
+              </div>
+            )}
+
+            {/* Résultats de l'analyse */}
+            {iaAnalysis && (
+              <div className="space-y-6">
+                {/* Résumé */}
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                  <h3 className="font-bold text-slate-800 text-lg mb-4 flex items-center gap-2">
+                    <Eye className="w-5 h-5 text-violet-600" />
+                    Résumé de l'analyse
+                  </h3>
+                  <p className="text-slate-700 mb-4">{iaAnalysis.analyse?.resume}</p>
+                  
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="bg-emerald-50 rounded-lg p-4">
+                      <p className="text-sm font-bold text-emerald-700 mb-2">Forces</p>
+                      <ul className="space-y-1">
+                        {iaAnalysis.analyse?.forces?.map((f, i) => (
+                          <li key={i} className="text-sm text-emerald-600 flex items-start gap-1">
+                            <span className="text-emerald-500">✓</span> {f}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div className="bg-red-50 rounded-lg p-4">
+                      <p className="text-sm font-bold text-red-700 mb-2">Faiblesses</p>
+                      <ul className="space-y-1">
+                        {iaAnalysis.analyse?.faiblesses?.map((f, i) => (
+                          <li key={i} className="text-sm text-red-600 flex items-start gap-1">
+                            <span className="text-red-500">✗</span> {f}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div className="bg-blue-50 rounded-lg p-4">
+                      <p className="text-sm font-bold text-blue-700 mb-2">Patterns identifiés</p>
+                      <ul className="space-y-1">
+                        {iaAnalysis.analyse?.patterns?.map((p, i) => (
+                          <li key={i} className="text-sm text-blue-600 flex items-start gap-1">
+                            <span className="text-blue-500">→</span> {p}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Évaluation des hypothèses existantes */}
+                <div className="grid grid-cols-2 gap-6">
+                  {iaAnalysis.evaluationHyp1 && (
+                    <div className="bg-white rounded-xl shadow-sm border border-emerald-200 p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="font-bold text-slate-800">Évaluation Hypothèse 1</h4>
+                        <span className="text-2xl font-bold text-emerald-600">{iaAnalysis.evaluationHyp1.score}/10</span>
+                      </div>
+                      <div className="space-y-3">
+                        <div>
+                          <p className="text-xs font-medium text-emerald-700 mb-1">Avantages</p>
+                          {iaAnalysis.evaluationHyp1.avantages?.map((a, i) => (
+                            <p key={i} className="text-sm text-slate-600">+ {a}</p>
+                          ))}
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-red-700 mb-1">Inconvénients</p>
+                          {iaAnalysis.evaluationHyp1.inconvenients?.map((a, i) => (
+                            <p key={i} className="text-sm text-slate-600">- {a}</p>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {iaAnalysis.evaluationHyp2 && (
+                    <div className="bg-white rounded-xl shadow-sm border border-blue-200 p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="font-bold text-slate-800">Évaluation Hypothèse 2</h4>
+                        <span className="text-2xl font-bold text-blue-600">{iaAnalysis.evaluationHyp2.score}/10</span>
+                      </div>
+                      <div className="space-y-3">
+                        <div>
+                          <p className="text-xs font-medium text-emerald-700 mb-1">Avantages</p>
+                          {iaAnalysis.evaluationHyp2.avantages?.map((a, i) => (
+                            <p key={i} className="text-sm text-slate-600">+ {a}</p>
+                          ))}
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-red-700 mb-1">Inconvénients</p>
+                          {iaAnalysis.evaluationHyp2.inconvenients?.map((a, i) => (
+                            <p key={i} className="text-sm text-slate-600">- {a}</p>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Hypothèse 3 générée */}
+                {iaHypothesis && (
+                  <div className="bg-gradient-to-br from-violet-50 to-fuchsia-50 rounded-xl shadow-lg border-2 border-violet-300 p-6 relative overflow-hidden">
+                    <div className="absolute top-4 right-4">
+                      <span className="px-3 py-1 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white text-xs font-bold rounded-full">
+                        GÉNÉRÉE PAR IA
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center gap-3 mb-4">
+                      <Sparkles className="w-6 h-6 text-violet-600" />
+                      <h3 className="text-xl font-bold text-slate-800">{iaHypothesis.name}</h3>
+                      {iaAnalysis.hypothese3?.score && (
+                        <span className="text-2xl font-bold text-violet-600 ml-auto">{iaAnalysis.hypothese3.score}/10</span>
+                      )}
+                    </div>
+                    
+                    <p className="text-slate-600 mb-2">{iaHypothesis.description}</p>
+                    <p className="text-sm text-violet-600 italic mb-4">{iaHypothesis.approche}</p>
+                    
+                    {/* Antennes proposées */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                      {iaHypothesis.items?.map((ant, i) => (
+                        <div key={i} className="bg-white rounded-lg p-4 border-l-4 border-violet-500">
+                          <p className="font-bold text-slate-800">{ant.nom}</p>
+                          <p className="text-xs text-slate-500 mb-2">Zone {ant.zone} • Rayon {ant.range}km</p>
+                          <p className="text-xs text-slate-600 italic">{ant.justification}</p>
+                          <p className="text-xs text-slate-400 mt-2">📍 [{ant.coords?.[0]?.toFixed(4)}, {ant.coords?.[1]?.toFixed(4)}]</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Bénéfices attendus */}
+                    {iaHypothesis.beneficesAttendus && (
+                      <div className="bg-white/60 rounded-lg p-4">
+                        <p className="text-sm font-bold text-violet-700 mb-2">Bénéfices attendus</p>
+                        <div className="flex flex-wrap gap-2">
+                          {iaHypothesis.beneficesAttendus.map((b, i) => (
+                            <span key={i} className="px-3 py-1 bg-violet-100 text-violet-700 rounded-full text-sm">
+                              {b}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Bouton pour activer */}
+                    <div className="mt-6 flex items-center gap-4">
+                      <button 
+                        onClick={() => { setHyp('hyp3'); setView('map'); }}
+                        className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-xl font-medium shadow-lg hover:shadow-xl hover:scale-105 transition-all"
+                      >
+                        <Map className="w-5 h-5" />
+                        Voir sur la carte
+                      </button>
+                      <button 
+                        onClick={() => { setHyp('hyp3'); setView('dataviz'); }}
+                        className="flex items-center gap-2 px-6 py-3 bg-white border-2 border-violet-500 text-violet-700 rounded-xl font-medium hover:bg-violet-50 transition-all"
+                      >
+                        <BarChart3 className="w-5 h-5" />
+                        Comparer les métriques
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Recommandation finale */}
+                {iaAnalysis.recommandation && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-6">
+                    <h4 className="font-bold text-amber-800 mb-2 flex items-center gap-2">
+                      <Target className="w-5 h-5" />
+                      Recommandation IA
+                    </h4>
+                    <p className="text-amber-700">{iaAnalysis.recommandation}</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         ) : (
           /* ═══════════════════════════════════════════════════════════════════
