@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup, Circle, Tooltip, Marker } from 'react-leaflet';
-import { MapPin, Users, Building2, AlertTriangle, Target, BarChart3, Eye, Table, Map, TrendingUp, Sparkles } from 'lucide-react';
+import { MapPin, Users, Building2, AlertTriangle, Target, BarChart3, Eye, Table, Map, TrendingUp, Sparkles, PieChart } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -374,6 +374,9 @@ export default function App() {
                 <button onClick={() => setView('map')} className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1.5 ${view === 'map' ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}>
                   <Map className="w-4 h-4" /> Carte
                 </button>
+                <button onClick={() => setView('dataviz')} className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1.5 ${view === 'dataviz' ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}>
+                  <PieChart className="w-4 h-4" /> Analyse
+                </button>
                 <button onClick={() => setView('table')} className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1.5 ${view === 'table' ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}>
                   <Table className="w-4 h-4" /> Données
                 </button>
@@ -681,6 +684,174 @@ export default function App() {
               </div>
             </div>
           </div>
+        ) : view === 'dataviz' ? (
+          /* ═══════════════════════════════════════════════════════════════════
+             VUE DATA VISUALIZATION - Chaque point = 1 enfant, 1 trajet
+          ═══════════════════════════════════════════════════════════════════ */
+          <div className="space-y-6">
+            {/* Titre section */}
+            <div className="bg-gradient-to-r from-slate-800 to-slate-700 rounded-xl p-6 text-white">
+              <h2 className="text-2xl font-bold mb-2">Analyse des Flux de Transport</h2>
+              <p className="text-slate-300">Chaque point représente un enfant et son trajet quotidien. Les couleurs révèlent l'écart entre offre et demande territoriale.</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-6">
+              {/* Scatter Plot - Distance par enfant */}
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h3 className="font-bold text-slate-800 mb-4">Distribution des trajets par distance</h3>
+                <p className="text-sm text-slate-500 mb-4">Chaque point = 1 enfant. Position horizontale = distance parcourue.</p>
+                <div className="relative h-[300px] border-l-2 border-b-2 border-slate-200">
+                  {/* Axis labels */}
+                  <div className="absolute -left-8 top-0 text-xs text-slate-400 -rotate-90 origin-right">Enfants</div>
+                  <div className="absolute bottom-[-24px] right-0 text-xs text-slate-400">Distance (km)</div>
+                  
+                  {/* Grid lines */}
+                  <div className="absolute left-0 right-0 top-0 bottom-0">
+                    {[15, 35, 50, 75].map(km => (
+                      <div key={km} className="absolute bottom-0 top-0 border-l border-dashed border-slate-200" 
+                        style={{ left: `${Math.min(km, 100)}%` }}>
+                        <span className="absolute bottom-[-20px] text-xs text-slate-400 -translate-x-1/2">{km}</span>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Zone colors */}
+                  <div className="absolute inset-0 flex">
+                    <div className="bg-green-50" style={{ width: '15%' }}></div>
+                    <div className="bg-amber-50" style={{ width: '20%' }}></div>
+                    <div className="bg-orange-50" style={{ width: '15%' }}></div>
+                    <div className="bg-red-50" style={{ width: '50%' }}></div>
+                  </div>
+                  
+                  {/* Points - each child */}
+                  {data.map((item, i) => {
+                    const x = Math.min((item.km / 100) * 100, 98);
+                    const y = (i / data.length) * 85 + 5;
+                    const color = item.km > 50 ? '#dc2626' : item.km > 35 ? '#f97316' : item.km > 15 ? '#f59e0b' : '#22c55e';
+                    return (
+                      <div key={i} 
+                        className="absolute w-2 h-2 rounded-full transform -translate-x-1/2 -translate-y-1/2 hover:scale-150 hover:z-10 cursor-pointer transition-transform"
+                        style={{ left: `${x}%`, top: `${y}%`, backgroundColor: color }}
+                        title={`${item.lieu} → ${item.etablissement || item.ecole}: ${item.km} km`}
+                      />
+                    );
+                  })}
+                </div>
+                <div className="flex justify-center gap-4 mt-6 text-xs">
+                  <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-green-500"></span> &lt;15km Optimal</span>
+                  <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-amber-500"></span> 15-35km Acceptable</span>
+                  <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-orange-500"></span> 35-50km Aberrant</span>
+                  <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-red-500"></span> &gt;50km Critique</span>
+                </div>
+              </div>
+
+              {/* Bar chart par établissement */}
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h3 className="font-bold text-slate-800 mb-4">Répartition par établissement de rattachement</h3>
+                <p className="text-sm text-slate-500 mb-4">Nombre d'enfants et distance moyenne par pôle.</p>
+                <div className="space-y-4">
+                  {['CME Montbard', 'IME Châtillon', 'IME Semur'].map(etab => {
+                    const children = data.filter(d => (d.etablissement || '').includes(etab.split(' ')[1]) || (d.etablissement || '').includes(etab));
+                    const avgKm = children.length > 0 ? (children.reduce((s, d) => s + d.km, 0) / children.length).toFixed(1) : 0;
+                    const critiques = children.filter(d => d.km > 50).length;
+                    const maxWidth = Math.max(...['CME Montbard', 'IME Châtillon', 'IME Semur'].map(e => 
+                      data.filter(d => (d.etablissement || '').includes(e.split(' ')[1])).length
+                    ));
+                    return (
+                      <div key={etab}>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="font-medium">{etab}</span>
+                          <span className="text-slate-500">{children.length} enfants • Moy: {avgKm} km</span>
+                        </div>
+                        <div className="h-6 bg-slate-100 rounded-full overflow-hidden flex">
+                          <div className="bg-green-500 h-full" style={{ width: `${(children.filter(d => d.km < 15).length / maxWidth) * 100}%` }}></div>
+                          <div className="bg-amber-500 h-full" style={{ width: `${(children.filter(d => d.km >= 15 && d.km < 35).length / maxWidth) * 100}%` }}></div>
+                          <div className="bg-orange-500 h-full" style={{ width: `${(children.filter(d => d.km >= 35 && d.km < 50).length / maxWidth) * 100}%` }}></div>
+                          <div className="bg-red-500 h-full" style={{ width: `${(children.filter(d => d.km >= 50).length / maxWidth) * 100}%` }}></div>
+                        </div>
+                        {critiques > 0 && <p className="text-xs text-red-600 mt-1">⚠️ {critiques} trajet(s) critique(s) &gt;50km</p>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Bubble chart - Communes */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+              <h3 className="font-bold text-slate-800 mb-2">Communes par volume et distance moyenne</h3>
+              <p className="text-sm text-slate-500 mb-4">Taille = nombre d'enfants. Couleur = distance moyenne vers l'établissement.</p>
+              <div className="flex flex-wrap gap-2 justify-center">
+                {aggregatedData.sort((a, b) => b.items.length - a.items.length).map((group, i) => {
+                  const avgKm = group.totalKm / group.items.length;
+                  const size = Math.max(group.items.length * 12 + 20, 32);
+                  const color = avgKm > 50 ? '#dc2626' : avgKm > 35 ? '#f97316' : avgKm > 15 ? '#f59e0b' : '#22c55e';
+                  return (
+                    <div key={i} 
+                      className="rounded-full flex items-center justify-center text-white font-bold text-xs cursor-pointer hover:scale-110 transition-transform"
+                      style={{ width: size, height: size, backgroundColor: color, opacity: 0.85 }}
+                      title={`${group.lieu}: ${group.items.length} enfant(s), ${avgKm.toFixed(1)} km moy.`}
+                    >
+                      {group.items.length}
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-center text-xs text-slate-400 mt-4">Survolez pour voir le détail de chaque commune</p>
+            </div>
+
+            {/* Impact hypothèses */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+              <h3 className="font-bold text-slate-800 mb-4">Impact des hypothèses sur la couverture</h3>
+              <div className="grid grid-cols-3 gap-4">
+                {Object.entries(HYPOTHESES).map(([key, h]) => {
+                  const hypCoverage = data.filter(d => {
+                    const coords = getCoords(d.lieu);
+                    if (!coords) return false;
+                    const byEtab = ETABLISSEMENTS.some(etab => haversineDistance(coords[0], coords[1], etab.coords[0], etab.coords[1]) < 15);
+                    if (byEtab) return true;
+                    return h.items.some(ant => haversineDistance(coords[0], coords[1], ant.coords[0], ant.coords[1]) < ant.range);
+                  }).length;
+                  const pct = ((hypCoverage / data.length) * 100).toFixed(0);
+                  const isActive = hyp === key;
+                  return (
+                    <div key={key} className={`p-4 rounded-xl border-2 ${isActive ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}`}>
+                      <p className="text-sm font-medium text-slate-600 mb-2">
+                        {key === 'current' ? 'État actuel' : key === 'hyp1' ? 'Hypothèse 1' : 'Hypothèse 2'}
+                      </p>
+                      <p className="text-4xl font-bold text-slate-800">{pct}%</p>
+                      <p className="text-sm text-slate-500">{hypCoverage}/{data.length} enfants &lt;15km</p>
+                      {h.items.length > 0 && (
+                        <p className="text-xs text-emerald-600 mt-2">+{h.items.length} antennes</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Top aberrations détaillées */}
+            <div className="bg-red-50 rounded-xl border border-red-200 p-6">
+              <h3 className="font-bold text-red-800 mb-4 flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5" /> 
+                Détail des flux aberrants ({stats.critiques} trajets &gt;50km)
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                {data.filter(d => d.km > 50).sort((a, b) => b.km - a.km).map((d, i) => (
+                  <div key={i} className="bg-white rounded-lg p-3 border border-red-200">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-bold text-slate-800">{d.lieu}</p>
+                        <p className="text-sm text-slate-500">→ {d.etablissement || d.ecole}</p>
+                      </div>
+                      <span className="text-2xl font-bold text-red-600">{d.km} km</span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">{d.handicap || 'Non spécifié'} • {d.source}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         ) : (
           /* ═══════════════════════════════════════════════════════════════════
              VUE TABLEAU
@@ -704,7 +875,7 @@ export default function App() {
             </thead>
             <tbody>
                   {data.map((item, i) => (
-                    <tr key={i} className="border-b border-slate-100 hover:bg-slate-50">
+                    <tr key={i} className={`border-b border-slate-100 hover:bg-slate-50 ${item.km > 50 ? 'bg-red-50' : item.km > 35 ? 'bg-orange-50' : ''}`}>
                       <td className="px-4 py-2 font-medium text-slate-800">{item.lieu}</td>
                       <td className="px-4 py-2">
                         <span className={`px-2 py-0.5 rounded text-xs font-medium ${item.source === 'IME' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
@@ -713,10 +884,10 @@ export default function App() {
                       </td>
                       <td className="px-4 py-2 text-slate-600">{item.handicap}</td>
                       <td className="px-4 py-2 text-slate-600">{item.etablissement || item.ecole}</td>
-                      <td className="px-4 py-2 text-right font-mono">{item.km} km</td>
+                      <td className="px-4 py-2 text-right font-mono font-bold" style={{ color: item.km > 50 ? '#dc2626' : item.km > 35 ? '#f97316' : '#64748b' }}>{item.km} km</td>
                       <td className="px-4 py-2 text-center">
                         <span className={`inline-block w-3 h-3 rounded-full ${
-                          item.km > 50 ? 'bg-red-500' : item.km > 30 ? 'bg-orange-500' : item.km > 15 ? 'bg-amber-500' : 'bg-green-500'
+                          item.km > 50 ? 'bg-red-500' : item.km > 35 ? 'bg-orange-500' : item.km > 15 ? 'bg-amber-500' : 'bg-green-500'
                         }`} title={getDistanceLabel(item.km)} />
                       </td>
                 </tr>
