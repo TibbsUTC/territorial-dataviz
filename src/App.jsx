@@ -1833,7 +1833,7 @@ IMPORTANT:
                     )}
 
                     {/* Bouton pour activer */}
-                    <div className="mt-6 flex items-center gap-4">
+                    <div className="mt-6 flex flex-wrap items-center gap-4">
                       <button 
                         onClick={() => { setHyp('hyp3'); setView('map'); }}
                         className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-xl font-medium shadow-lg hover:shadow-xl hover:scale-105 transition-all"
@@ -1847,6 +1847,13 @@ IMPORTANT:
                       >
                         <BarChart3 className="w-5 h-5" />
                         Comparer les métriques
+                      </button>
+                      <button 
+                        onClick={() => { setHyp('hyp3'); setShowCostAnalysis(true); }}
+                        className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-medium shadow-lg hover:shadow-xl hover:scale-105 transition-all"
+                      >
+                        <Calculator className="w-5 h-5" />
+                        💰 Calculer les coûts
                       </button>
                     </div>
                   </div>
