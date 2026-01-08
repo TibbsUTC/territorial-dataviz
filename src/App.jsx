@@ -982,21 +982,29 @@ ANALYSE ECONOMIQUE (si hypothèse active):
 - ROI: ${economicAnalysis?.roiMois || 0} mois
 `.trim();
       
-      const prompt = `Tu es un consultant senior spécialisé en stratégie territoriale médico-sociale.
+      const prompt = `Tu es un Partner McKinsey expert en transformation territoriale medico-sociale.
 
-REGLES ABSOLUES:
-- Reponses courtes et factuelles (max 150 mots)
-- JAMAIS d'emoji ni de formulation enthousiaste
-- Cite uniquement les chiffres du contexte ci-dessous
-- Si une donnée n'existe pas dans le contexte, dis "Donnée non disponible"
-- Style McKinsey: structure, precision, insight actionnable
-- Termine parfois par une question strategique pour approfondir
+REGLES DE REPONSE:
+- Maximum 120 mots, structure claire
+- JAMAIS d'emoji, JAMAIS de ##, JAMAIS de formulation vague
+- Utilise **texte** pour mettre en gras les chiffres cles et conclusions
+- Base UNIQUEMENT sur les donnees ci-dessous, sinon dis "Non disponible"
+- Chaque reponse doit contenir:
+  1. Un constat factuel chiffre
+  2. Un insight strategique non evident
+  3. Une recommandation actionnable OU une question pour affiner
+
+APPROCHE DECISIONNELLE:
+- Compare toujours avec un benchmark ou une alternative
+- Identifie les leviers d'action prioritaires
+- Quantifie l'impact quand possible
+- Challenge les hypotheses implicites
 
 ${dataContext}
 
 QUESTION: "${userMessage}"
 
-Reponds de facon structuree et factuelle.`;
+Structure ta reponse: Constat > Insight > Recommandation/Question.`;
       
       const response = await callClaudeAPI(prompt);
       setChatMessages(prev => [...prev, { role: 'assistant', content: response }]);
@@ -1185,7 +1193,7 @@ IMPORTANT:
                 Cartographie Territoriale VyV3
               </h1>
               <p className={`text-sm ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Analyse des besoins vs offre médico-sociale • Côte-d'Or</p>
-            </div>
+        </div>
             <div className="flex items-center gap-3">
               {/* Toggle Vue */}
               <div className={`flex rounded-lg p-1 ${darkMode ? 'bg-slate-700' : 'bg-slate-100'}`}>
@@ -1220,7 +1228,7 @@ IMPORTANT:
               >
                 <LogOut className="w-5 h-5" />
               </button>
-            </div>
+        </div>
           </div>
         </div>
       </header>
@@ -1246,7 +1254,7 @@ IMPORTANT:
               </button>
             ))}
             </div>
-        </div>
+          </div>
 
           {/* Hypothèses */}
           <div className="flex bg-white rounded-lg border border-slate-200 p-1">
@@ -1478,8 +1486,8 @@ IMPORTANT:
                     <div key={i} className="flex justify-between items-center text-sm">
                       <span className="text-red-700 truncate flex-1">{d.lieu}</span>
                       <span className="text-red-600 font-bold ml-2">{d.optimizedKm} km</span>
-          </div>
-                  ))}
+              </div>
+            ))}
                   {stats.critiques === 0 && hyp !== 'current' && (
                     <p className="text-sm text-green-700">🎉 L'hypothèse élimine tous les trajets &gt;50km !</p>
                   )}
@@ -1753,16 +1761,16 @@ IMPORTANT:
                       }`}
                     >
                       <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
                           {isIA && <Sparkles className="w-4 h-4 text-violet-600" />}
                           <span className="font-semibold text-slate-800">{h.name}</span>
                           {isActive && <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Actif</span>}
-                        </div>
+            </div>
                         <div className="text-xs text-slate-500">
                           {proches} proches • {moderes} modérés • {aberrants} aberrants • {critiques} critiques
-                        </div>
-                      </div>
-                      
+          </div>
+        </div>
+
                       {/* Barre de répartition */}
                       <div className="h-8 rounded-lg overflow-hidden flex">
                         <div 
@@ -1826,7 +1834,7 @@ IMPORTANT:
                 <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
                   {hyp === 'hyp3' && <Sparkles className="w-5 h-5 text-violet-600" />}
                   {hyp === 'hyp3' ? iaHypothesis?.name : HYPOTHESES[hyp]?.name} - Détail des antennes
-                </h3>
+            </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   {(hyp === 'hyp3' ? iaHypothesis?.items : HYPOTHESES[hyp]?.items)?.map((ant, i) => (
                     <div key={i} className={`bg-white rounded-lg p-4 border-l-4 ${hyp === 'hyp1' ? 'border-emerald-500' : hyp === 'hyp3' ? 'border-violet-500' : 'border-blue-500'}`}>
@@ -1834,7 +1842,7 @@ IMPORTANT:
                       <p className="text-xs text-slate-500 mb-2">Zone {ant.zone} • Rayon {ant.range}km</p>
                       <p className="text-xs text-slate-600 italic">{ant.justification}</p>
                       <p className="text-xs text-slate-400 mt-2">📍 [{ant.coords?.[0]?.toFixed(4)}, {ant.coords?.[1]?.toFixed(4)}]</p>
-                    </div>
+          </div>
                   ))}
                 </div>
               </div>
@@ -2587,7 +2595,12 @@ IMPORTANT:
                         ? 'bg-slate-700 text-slate-200 rounded-bl-md' 
                         : 'bg-white text-slate-700 shadow-sm rounded-bl-md'
                   }`}>
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                    <div className="whitespace-pre-wrap" dangerouslySetInnerHTML={{ 
+                      __html: msg.content
+                        .replace(/#{1,3}\s*/g, '') // Supprime les ##
+                        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>') // **texte** → gras
+                        .replace(/\n/g, '<br/>') // Sauts de ligne
+                    }} />
                   </div>
                 </div>
               ))}
