@@ -884,45 +884,128 @@ function Dashboard({ onLogout }) {
     setChatLoading(true);
     
     try {
-      // Préparer le contexte des données
+      // Calculer les stats pour chaque hypothèse
+      const calcHypStats = (hypKey) => {
+        const hypItems = hypKey === 'current' ? [] : (hypKey === 'hyp3' && iaHypothesis ? iaHypothesis.items : HYPOTHESES[hypKey]?.items || []);
+        const optimized = data.map(d => {
+          const coords = COMMUNES_COORDS[d.lieu.toUpperCase()];
+          if (!coords) return d.km;
+          let minDist = d.km;
+          hypItems.forEach(ant => {
+            const dist = haversineDistance(coords[0], coords[1], ant.coords[0], ant.coords[1]);
+            if (dist < minDist) minDist = dist;
+          });
+          return minDist;
+        });
+        const proches = optimized.filter(d => d < 15).length;
+        const aberrants = optimized.filter(d => d >= 35).length;
+        const critiques = optimized.filter(d => d >= 50).length;
+        const totalKm = optimized.reduce((s, d) => s + d, 0);
+        return {
+          couverture: ((proches / data.length) * 100).toFixed(0),
+          distMoy: (totalKm / data.length).toFixed(1),
+          aberrants,
+          critiques,
+          proches,
+          kmJour: Math.round(totalKm)
+        };
+      };
+      
+      const currentStats = calcHypStats('current');
+      const hyp1Stats = calcHypStats('hyp1');
+      const hyp2Stats = calcHypStats('hyp2');
+      const hyp3Stats = iaHypothesis ? calcHypStats('hyp3') : null;
+      
+      // Top communes par nombre d'enfants
+      const topCommunes = aggregatedData.slice(0, 15).map(g => ({
+        commune: g.lieu,
+        enfants: g.items.length,
+        distMoy: (g.totalKm / g.items.length).toFixed(1)
+      }));
+      
+      // Zones blanches (>35km)
+      const zonesBlanches = aggregatedData.filter(g => (g.totalKm / g.items.length) > 35).map(g => g.lieu);
+      
       const dataContext = `
-CONTEXTE DONNÉES VYV3:
-- Total enfants: ${stats?.total || 0}
-- Distance moyenne: ${stats?.avgKm || 0} km
-- Couverture (<15km): ${coverage?.percentage || 0}%
-- Trajets aberrants (>35km): ${stats?.aberrants || 0}
-- Trajets critiques (>50km): ${stats?.critiques || 0}
-- Budget transport réel: 800 000€/an (source PDF)
-- Hypothèse sélectionnée: ${hyp === 'current' ? 'État actuel' : hyp === 'hyp3' ? 'Hypothèse IA' : `Hypothèse ${hyp.replace('hyp', '')}`}
-- Économie potentielle: ${economicAnalysis?.economieTransport?.toLocaleString() || 0}€
-- Établissements: IME Châtillon, IME Semur, CME Montbard
+DONNEES VYV3 COTE-D'OR (Source: données internes, ${data.length} enfants anonymisés)
 
-COÛTS PAR ÉTABLISSEMENT (Source PDF):
-- IME Châtillon: 2 955€/enfant (28 enfants) = 82 740€
-- CME Montbard: 4 200€/enfant (30 enfants) = 126 000€
-- IME Semur: 12 232€/enfant (40 enfants) = 489 280€ ⚠️ FLUX ABERRANTS
-- SESSAD: ~100 000€
+ETAT ACTUEL:
+- ${data.length} enfants suivis (IME: ${IME_DATA.length}, SESSAD: ${SESSAD_DATA.length})
+- ${aggregatedData.length} communes distinctes
+- Distance moyenne domicile-établissement: ${currentStats.distMoy} km
+- Couverture (<15km): ${currentStats.couverture}% (${currentStats.proches} enfants)
+- Trajets aberrants (>35km): ${currentStats.aberrants} enfants
+- Trajets critiques (>50km): ${currentStats.critiques} enfants
+- Kilométrage total/jour: ${currentStats.kmJour} km
 
-INSIGHT CLÉ: Le pôle SEMUR coûte 4x plus cher que les autres en transport.
-      `.trim();
+ETABLISSEMENTS EXISTANTS:
+- IME Châtillon-sur-Seine (nord)
+- IME Semur-en-Auxois (centre)
+- CME Montbard (centre-nord)
+
+BUDGET TRANSPORT (Source PDF VyV3):
+- Total: 800 000 EUR/an
+- IME Châtillon: 2 955 EUR/enfant = 82 740 EUR
+- CME Montbard: 4 200 EUR/enfant = 126 000 EUR
+- IME Semur: 12 232 EUR/enfant = 489 280 EUR (coût 4x supérieur)
+- SESSAD: ~100 000 EUR
+
+HYPOTHESE 1 (${HYPOTHESES.hyp1.name}):
+- Antennes: ${HYPOTHESES.hyp1.items.map(a => a.nom).join(', ')}
+- Couverture projetée: ${hyp1Stats.couverture}%
+- Distance moyenne: ${hyp1Stats.distMoy} km
+- Trajets aberrants: ${hyp1Stats.aberrants}
+
+HYPOTHESE 2 (${HYPOTHESES.hyp2.name}):
+- Antennes: ${HYPOTHESES.hyp2.items.map(a => a.nom).join(', ')}
+- Couverture projetée: ${hyp2Stats.couverture}%
+- Distance moyenne: ${hyp2Stats.distMoy} km
+- Trajets aberrants: ${hyp2Stats.aberrants}
+
+${hyp3Stats ? `HYPOTHESE IA (${iaHypothesis.name}):
+- Antennes: ${iaHypothesis.items.map(a => a.nom).join(', ')}
+- Couverture projetée: ${hyp3Stats.couverture}%
+- Distance moyenne: ${hyp3Stats.distMoy} km
+- Trajets aberrants: ${hyp3Stats.aberrants}
+- Economie nette estimée: ${economicAnalysis?.economieNette?.toLocaleString() || 0} EUR/an` : 'HYPOTHESE IA: Non générée'}
+
+TOP 15 COMMUNES (par nb enfants):
+${topCommunes.map(c => `- ${c.commune}: ${c.enfants} enfants, ${c.distMoy} km moy`).join('\n')}
+
+ZONES BLANCHES (>35km): ${zonesBlanches.length > 0 ? zonesBlanches.join(', ') : 'Aucune'}
+
+ANALYSE ECONOMIQUE (si hypothèse active):
+- Km annuels actuels: ${economicAnalysis?.kmAnActuel?.toLocaleString() || 0}
+- Km annuels optimisés: ${economicAnalysis?.kmAnOptimise?.toLocaleString() || 0}
+- Economie transport: ${economicAnalysis?.economieTransport?.toLocaleString() || 0} EUR
+- Equivalent postes: ${economicAnalysis?.equivalentEducateurs || 0}
+- ROI: ${economicAnalysis?.roiMois || 0} mois
+`.trim();
       
-      const prompt = `Tu es un assistant expert en analyse territoriale médico-sociale pour VyV3 Bourgogne.
-      
+      const prompt = `Tu es un consultant senior spécialisé en stratégie territoriale médico-sociale.
+
+REGLES ABSOLUES:
+- Reponses courtes et factuelles (max 150 mots)
+- JAMAIS d'emoji ni de formulation enthousiaste
+- Cite uniquement les chiffres du contexte ci-dessous
+- Si une donnée n'existe pas dans le contexte, dis "Donnée non disponible"
+- Style McKinsey: structure, precision, insight actionnable
+- Termine parfois par une question strategique pour approfondir
+
 ${dataContext}
 
-L'utilisateur pose la question suivante:
-"${userMessage}"
+QUESTION: "${userMessage}"
 
-Réponds de manière concise, professionnelle et actionnable. Si pertinent, cite des chiffres précis du contexte.`;
+Reponds de facon structuree et factuelle.`;
       
       const response = await callClaudeAPI(prompt);
       setChatMessages(prev => [...prev, { role: 'assistant', content: response }]);
     } catch (err) {
-      setChatMessages(prev => [...prev, { role: 'assistant', content: `Erreur: ${err.message}. Vérifiez la configuration API.` }]);
+      setChatMessages(prev => [...prev, { role: 'assistant', content: `Erreur: ${err.message}` }]);
     } finally {
       setChatLoading(false);
     }
-  }, [chatInput, chatLoading, stats, coverage, hyp, economicAnalysis]);
+  }, [chatInput, chatLoading, stats, coverage, hyp, economicAnalysis, data, aggregatedData, iaHypothesis]);
 
   // Génération de l'analyse IA globale
   const generateIAAnalysis = useCallback(async () => {
@@ -1912,11 +1995,15 @@ IMPORTANT:
               </button>
 
               <button 
-                onClick={() => setShowCostAnalysis(!showCostAnalysis)}
+                onClick={() => iaAnalysis && setShowCostAnalysis(!showCostAnalysis)}
+                disabled={!iaAnalysis && !iaLoading}
                 className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-all
-                  ${showCostAnalysis 
-                    ? 'bg-emerald-600 text-white' 
-                    : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'}`}
+                  ${!iaAnalysis && !iaLoading
+                    ? 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed'
+                    : showCostAnalysis 
+                      ? 'bg-emerald-600 text-white' 
+                      : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'}`}
+                title={!iaAnalysis ? 'Lancez d\'abord l\'analyse IA' : ''}
               >
                 <Calculator className="w-4 h-4" />
                 {showCostAnalysis ? 'Masquer l\'analyse coûts' : 'Analyse des coûts'}
@@ -2365,7 +2452,7 @@ IMPORTANT:
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="px-4 py-3 bg-slate-50 border-b border-slate-200">
               <h3 className="font-bold text-slate-800">Données brutes - {data.length} enregistrements</h3>
-              <p className="text-sm text-slate-500">Source : File active VyV3 • Données auditables</p>
+              <p className="text-sm text-slate-500">1 enregistrement = 1 enfant anonymisé • Source : File active VyV3</p>
             </div>
             <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
               <table className="w-full text-sm">
