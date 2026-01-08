@@ -1,14 +1,23 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup, Circle, Tooltip, Marker } from 'react-leaflet';
-import { MapPin, Users, Building2, AlertTriangle, Target, BarChart3, Eye, Table, Map, TrendingUp, Sparkles, PieChart, Brain, Download, RefreshCw, Zap, Save, CheckCircle, XCircle, Loader2, Calculator, Euro, Fuel, Clock, Heart, School, MapPinned, TrendingDown, Banknote, Car, LogOut } from 'lucide-react';
+import { MapPin, Users, Building2, AlertTriangle, Target, BarChart3, Eye, Table, Map, TrendingUp, Sparkles, PieChart, Brain, Download, RefreshCw, Zap, Save, CheckCircle, XCircle, Loader2, Calculator, Euro, Fuel, Clock, Heart, School, MapPinned, TrendingDown, Banknote, Car, LogOut, Moon, Sun, MessageCircle, Send, X, Minimize2 } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// CONSTANTES ÉCONOMIQUES - Coûts de référence 2024
+// CONSTANTES ÉCONOMIQUES - Basées sur PDF VyV3 Bourgogne Patrimoine & Offre PE
 // ═══════════════════════════════════════════════════════════════════════════════
 const COST_CONSTANTS = {
-  // Transport
-  TAXI_KM: 2.50,           // €/km taxi conventionné
+  // Budget Transport Réel (Source: PDF VyV3)
+  // IME Châtillon: 2 955€/enfant × 28 = 82 740€
+  // CME Montbard: 4 200€/enfant × 30 = 126 000€  
+  // IME Semur: 12 232€/enfant × 40 = 489 280€ (flux aberrants!)
+  // SESSAD: ~100 000€
+  // TOTAL DOCUMENTAIRE: ~800 000€
+  BUDGET_TRANSPORT_REEL: 800000, // €/an (source PDF comptable)
+  
+  // Coûts unitaires de référence
+  TAXI_KM: 2.50,           // €/km taxi conventionné (calcul théorique)
+  COUT_KM_GROUPE: 0.50,    // €/km bus groupé (réalité terrain)
   DIESEL_LITER: 1.70,      // €/L diesel
   CONSO_100KM: 7,          // L/100km véhicule standard
   CO2_KM: 0.21,            // kg CO2/km
@@ -575,6 +584,38 @@ function Dashboard({ onLogout }) {
   const [view, setView] = useState('map'); // 'map', 'table', 'dataviz', 'ia'
   const [showZones, setShowZones] = useState(true);
   
+  // Dark Mode
+  const [darkMode, setDarkMode] = useState(() => {
+    return localStorage.getItem('vyv3_darkmode') === 'true';
+  });
+  
+  useEffect(() => {
+    localStorage.setItem('vyv3_darkmode', darkMode.toString());
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [darkMode]);
+
+  // Chatbot
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState(() => {
+    try {
+      const saved = localStorage.getItem('vyv3_chat_messages');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+
+  // Persistance chat
+  useEffect(() => {
+    if (chatMessages.length > 0) {
+      localStorage.setItem('vyv3_chat_messages', JSON.stringify(chatMessages));
+    }
+  }, [chatMessages]);
+  
   // États IA - Avec persistance localStorage
   const [iaLoading, setIaLoading] = useState(false);
   const [iaAnalysis, setIaAnalysis] = useState(() => {
@@ -617,6 +658,61 @@ function Dashboard({ onLogout }) {
     setIaHypothesis(null);
     if (hyp === 'hyp3') setHyp('current');
   }, [hyp]);
+
+  // Chatbot - Envoi de message avec contexte de données
+  const sendChatMessage = useCallback(async () => {
+    if (!chatInput.trim() || chatLoading) return;
+    
+    const userMessage = chatInput.trim();
+    setChatInput('');
+    setChatMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    setChatLoading(true);
+    
+    try {
+      // Préparer le contexte des données
+      const dataContext = `
+CONTEXTE DONNÉES VYV3:
+- Total enfants: ${stats?.total || 0}
+- Distance moyenne: ${stats?.avgKm || 0} km
+- Couverture (<15km): ${coverage?.percentage || 0}%
+- Trajets aberrants (>35km): ${stats?.aberrants || 0}
+- Trajets critiques (>50km): ${stats?.critiques || 0}
+- Budget transport réel: 800 000€/an (source PDF)
+- Hypothèse sélectionnée: ${hyp === 'current' ? 'État actuel' : hyp === 'hyp3' ? 'Hypothèse IA' : `Hypothèse ${hyp.replace('hyp', '')}`}
+- Économie potentielle: ${economicAnalysis?.economieTransport?.toLocaleString() || 0}€
+- Établissements: IME Châtillon, IME Semur, CME Montbard
+
+COÛTS PAR ÉTABLISSEMENT (Source PDF):
+- IME Châtillon: 2 955€/enfant (28 enfants) = 82 740€
+- CME Montbard: 4 200€/enfant (30 enfants) = 126 000€
+- IME Semur: 12 232€/enfant (40 enfants) = 489 280€ ⚠️ FLUX ABERRANTS
+- SESSAD: ~100 000€
+
+INSIGHT CLÉ: Le pôle SEMUR coûte 4x plus cher que les autres en transport.
+      `.trim();
+      
+      const prompt = `Tu es un assistant expert en analyse territoriale médico-sociale pour VyV3 Bourgogne.
+      
+${dataContext}
+
+L'utilisateur pose la question suivante:
+"${userMessage}"
+
+Réponds de manière concise, professionnelle et actionnable. Si pertinent, cite des chiffres précis du contexte.`;
+      
+      const response = await callClaudeAPI(prompt);
+      setChatMessages(prev => [...prev, { role: 'assistant', content: response }]);
+    } catch (err) {
+      setChatMessages(prev => [...prev, { role: 'assistant', content: `Erreur: ${err.message}. Vérifiez la configuration API.` }]);
+    } finally {
+      setChatLoading(false);
+    }
+  }, [chatInput, chatLoading, stats, coverage, hyp, economicAnalysis]);
+
+  const clearChat = () => {
+    setChatMessages([]);
+    localStorage.removeItem('vyv3_chat_messages');
+  };
 
   // Données filtrées
   const data = useMemo(() => {
@@ -732,10 +828,12 @@ function Dashboard({ onLogout }) {
     const kmAnOptimise = kmJourOptimise * COST_CONSTANTS.JOURS_TRAVAIL_AN;
     const kmEconomisesAn = kmAnActuel - kmAnOptimise;
     
-    // Coûts transport actuels
-    const coutTaxiActuel = kmAnActuel * COST_CONSTANTS.TAXI_KM;
-    const coutTaxiOptimise = kmAnOptimise * COST_CONSTANTS.TAXI_KM;
-    const economieTaxi = coutTaxiActuel - coutTaxiOptimise;
+    // Coûts transport - Basés sur budget réel PDF (800k€)
+    // Ratio de réduction km = économie proportionnelle
+    const ratioReduction = kmAnActuel > 0 ? kmEconomisesAn / kmAnActuel : 0;
+    const coutTransportActuel = COST_CONSTANTS.BUDGET_TRANSPORT_REEL; // 800k€ réel
+    const coutTransportOptimise = Math.round(coutTransportActuel * (1 - ratioReduction));
+    const economieTransport = coutTransportActuel - coutTransportOptimise;
     
     // Coût diesel (si véhicules propres)
     const litresDieselActuel = (kmAnActuel / 100) * COST_CONSTANTS.CONSO_100KM;
@@ -771,11 +869,11 @@ function Dashboard({ onLogout }) {
     const coutLoyerAn = nbAntennes * COST_CONSTANTS.SURFACE_ANTENNE * COST_CONSTANTS.LOYER_ANTENNE_M2 * 12;
     
     // Équivalent éducateurs
-    const economieNette = economieTaxi - coutLoyerAn;
+    const economieNette = economieTransport - coutLoyerAn;
     const equivalentEducateurs = Math.floor(economieNette / COST_CONSTANTS.SALAIRE_EDUCATEUR);
     
     // Coût actuel en équivalent postes (pour comparaison)
-    const coutActuelEnPostes = Math.floor(coutTaxiActuel / COST_CONSTANTS.SALAIRE_EDUCATEUR);
+    const coutActuelEnPostes = Math.floor(coutTransportActuel / COST_CONSTANTS.SALAIRE_EDUCATEUR);
     
     // ROI
     const roiMois = investAmenagement > 0 ? Math.ceil(investAmenagement / (economieNette / 12)) : 0;
@@ -788,10 +886,10 @@ function Dashboard({ onLogout }) {
       kmAnOptimise: Math.round(kmAnOptimise),
       kmEconomisesAn: Math.round(kmEconomisesAn),
       
-      // Coûts transport
-      coutTaxiActuel: Math.round(coutTaxiActuel),
-      coutTaxiOptimise: Math.round(coutTaxiOptimise),
-      economieTaxi: Math.round(economieTaxi),
+      // Coûts transport (basés sur budget réel 800k€)
+      coutTransportActuel,
+      coutTransportOptimise,
+      economieTransport,
       coutDieselActuel: Math.round(coutDieselActuel),
       economieDiesel: Math.round(economieDiesel),
       
@@ -993,43 +1091,52 @@ IMPORTANT:
   }, [iaHypothesis, iaAnalysis, data, coverage, stats]);
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className={`min-h-screen transition-colors ${darkMode ? 'dark bg-slate-900' : 'bg-slate-50'}`}>
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
+      <header className={`border-b sticky top-0 z-50 transition-colors ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
         <div className="max-w-[1600px] mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div>
-                <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                  <BarChart3 className="w-6 h-6 text-blue-600" />
-                  Cartographie Territoriale VyV3
-                </h1>
-                <p className="text-sm text-slate-500">Analyse des besoins vs offre médico-sociale • Côte-d'Or</p>
-              </div>
-              <button 
-                onClick={onLogout}
-                className="ml-2 p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                title="Se déconnecter"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
+            <div>
+              <h1 className={`text-xl font-bold flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+                <BarChart3 className="w-6 h-6 text-blue-600" />
+                Cartographie Territoriale VyV3
+              </h1>
+              <p className={`text-sm ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>Analyse des besoins vs offre médico-sociale • Côte-d'Or</p>
             </div>
             <div className="flex items-center gap-3">
               {/* Toggle Vue */}
-              <div className="flex bg-slate-100 rounded-lg p-1">
-                <button onClick={() => setView('map')} className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1.5 ${view === 'map' ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}>
+              <div className={`flex rounded-lg p-1 ${darkMode ? 'bg-slate-700' : 'bg-slate-100'}`}>
+                <button onClick={() => setView('map')} className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1.5 ${view === 'map' ? (darkMode ? 'bg-slate-600 text-white shadow' : 'bg-white shadow text-slate-800') : (darkMode ? 'text-slate-400' : 'text-slate-500')}`}>
                   <Map className="w-4 h-4" /> Carte
                 </button>
-                <button onClick={() => setView('dataviz')} className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1.5 ${view === 'dataviz' ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}>
-                  <PieChart className="w-4 h-4" /> Analyse
+                <button onClick={() => setView('dataviz')} className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1.5 ${view === 'dataviz' ? (darkMode ? 'bg-slate-600 text-white shadow' : 'bg-white shadow text-slate-800') : (darkMode ? 'text-slate-400' : 'text-slate-500')}`}>
+                  <PieChart className="w-4 h-4" /> Visualiser
                 </button>
-                <button onClick={() => setView('ia')} className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1.5 ${view === 'ia' ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow' : 'text-slate-500'}`}>
-                  <Brain className="w-4 h-4" /> IA
+                <button onClick={() => setView('ia')} className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1.5 ${view === 'ia' ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow' : (darkMode ? 'text-slate-400' : 'text-slate-500')}`}>
+                  <Sparkles className="w-4 h-4" /> Générer
                 </button>
-                <button onClick={() => setView('table')} className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1.5 ${view === 'table' ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}>
+                <button onClick={() => setView('table')} className={`px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1.5 ${view === 'table' ? (darkMode ? 'bg-slate-600 text-white shadow' : 'bg-white shadow text-slate-800') : (darkMode ? 'text-slate-400' : 'text-slate-500')}`}>
                   <Table className="w-4 h-4" /> Données
                 </button>
               </div>
+              
+              {/* Dark Mode Toggle */}
+              <button 
+                onClick={() => setDarkMode(!darkMode)}
+                className={`p-2 rounded-lg transition-all ${darkMode ? 'text-yellow-400 hover:bg-slate-700' : 'text-slate-500 hover:bg-slate-100'}`}
+                title={darkMode ? 'Mode clair' : 'Mode sombre'}
+              >
+                {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              </button>
+              
+              {/* Logout */}
+              <button 
+                onClick={onLogout}
+                className={`p-2 rounded-lg transition-all ${darkMode ? 'text-slate-400 hover:text-red-400 hover:bg-slate-700' : 'text-slate-400 hover:text-red-500 hover:bg-red-50'}`}
+                title="Se déconnecter"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
             </div>
           </div>
         </div>
@@ -1090,15 +1197,6 @@ IMPORTANT:
             <input type="checkbox" checked={showZones} onChange={() => setShowZones(!showZones)} className="rounded border-slate-300" />
             <span className="text-sm text-slate-600">Zones de couverture</span>
           </label>
-
-          {/* IA Button */}
-          <button 
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-lg font-medium text-sm shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 hover:scale-105 transition-all cursor-pointer"
-            onClick={() => setView('ia')}
-          >
-            <Sparkles className="w-4 h-4" />
-            {iaHypothesis ? 'Voir Insight IA' : 'Générer Insight IA'}
-          </button>
         </div>
 
         {/* KPIs */}
@@ -1443,7 +1541,7 @@ IMPORTANT:
               </div>
             </div>
 
-            {/* Bubble chart - Communes */}
+            {/* Bubble chart - Communes - COMMENTÉ (pas utile pour le moment)
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
               <h3 className="font-bold text-slate-800 mb-2">Communes par volume et distance moyenne</h3>
               <p className="text-sm text-slate-500 mb-4">Taille = nombre d'enfants. Couleur = distance moyenne vers l'établissement.</p>
@@ -1465,6 +1563,7 @@ IMPORTANT:
               </div>
               <p className="text-center text-xs text-slate-400 mt-4">Survolez pour voir le détail de chaque commune</p>
             </div>
+            */}
 
             {/* Impact hypothèses - Comparaison auditable */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
@@ -1528,6 +1627,113 @@ IMPORTANT:
                     </div>
                   );
                 })}
+              </div>
+            </div>
+
+            {/* Répartition des enfants par catégorie de distance - Comparaison visuelle */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+              <h3 className="font-bold text-slate-800 mb-2">Répartition par catégorie de distance</h3>
+              <p className="text-sm text-slate-500 mb-4">Comparaison visuelle de l'impact de chaque hypothèse sur la répartition des trajets</p>
+              
+              <div className="space-y-4">
+                {Object.entries(allHypotheses).map(([key, h]) => {
+                  const items = h.items || [];
+                  // Calculer les distances optimisées pour cette hypothèse
+                  const optimizedForHyp = data.map(d => {
+                    const coords = getCoords(d.lieu);
+                    if (!coords) return d.km;
+                    let minDist = d.km;
+                    items.forEach(ant => {
+                      const dist = haversineDistance(coords[0], coords[1], ant.coords[0], ant.coords[1]);
+                      if (dist < minDist) minDist = dist;
+                    });
+                    return minDist;
+                  });
+                  
+                  const proches = optimizedForHyp.filter(km => km < 15).length;
+                  const moderes = optimizedForHyp.filter(km => km >= 15 && km < 35).length;
+                  const aberrants = optimizedForHyp.filter(km => km >= 35 && km < 50).length;
+                  const critiques = optimizedForHyp.filter(km => km >= 50).length;
+                  const total = data.length;
+                  
+                  const isActive = hyp === key;
+                  const isIA = key === 'hyp3';
+                  
+                  return (
+                    <div 
+                      key={key} 
+                      onClick={() => setHyp(key)}
+                      className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                        isActive 
+                          ? isIA ? 'border-violet-500 bg-violet-50' : 'border-blue-500 bg-blue-50'
+                          : 'border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          {isIA && <Sparkles className="w-4 h-4 text-violet-600" />}
+                          <span className="font-semibold text-slate-800">{h.name}</span>
+                          {isActive && <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Actif</span>}
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          {proches} proches • {moderes} modérés • {aberrants} aberrants • {critiques} critiques
+                        </div>
+                      </div>
+                      
+                      {/* Barre de répartition */}
+                      <div className="h-8 rounded-lg overflow-hidden flex">
+                        <div 
+                          className="bg-emerald-500 flex items-center justify-center text-white text-xs font-bold transition-all"
+                          style={{ width: `${(proches / total) * 100}%` }}
+                          title={`${proches} enfants < 15km`}
+                        >
+                          {proches > 5 && proches}
+                        </div>
+                        <div 
+                          className="bg-amber-400 flex items-center justify-center text-white text-xs font-bold transition-all"
+                          style={{ width: `${(moderes / total) * 100}%` }}
+                          title={`${moderes} enfants 15-35km`}
+                        >
+                          {moderes > 5 && moderes}
+                        </div>
+                        <div 
+                          className="bg-orange-500 flex items-center justify-center text-white text-xs font-bold transition-all"
+                          style={{ width: `${(aberrants / total) * 100}%` }}
+                          title={`${aberrants} enfants 35-50km`}
+                        >
+                          {aberrants > 3 && aberrants}
+                        </div>
+                        <div 
+                          className="bg-red-500 flex items-center justify-center text-white text-xs font-bold transition-all"
+                          style={{ width: `${(critiques / total) * 100}%` }}
+                          title={`${critiques} enfants > 50km`}
+                        >
+                          {critiques > 0 && critiques}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              
+              {/* Légende */}
+              <div className="flex justify-center gap-6 mt-4 pt-4 border-t border-slate-100">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded bg-emerald-500"></div>
+                  <span className="text-xs text-slate-600">&lt;15km (Proche)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded bg-amber-400"></div>
+                  <span className="text-xs text-slate-600">15-35km (Modéré)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded bg-orange-500"></div>
+                  <span className="text-xs text-slate-600">35-50km (Aberrant)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded bg-red-500"></div>
+                  <span className="text-xs text-slate-600">&gt;50km (Critique)</span>
+                </div>
               </div>
             </div>
 
@@ -1624,10 +1830,10 @@ IMPORTANT:
                   <div className={`rounded-lg p-4 border ${hyp !== 'current' ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-100'}`}>
                     <p className={`text-xs font-medium mb-1 ${hyp !== 'current' ? 'text-emerald-600' : 'text-slate-500'}`}>Coût transport</p>
                     <p className={`text-2xl font-bold ${hyp !== 'current' ? 'text-emerald-700' : 'text-slate-800'}`}>
-                      {hyp === 'current' ? (economicAnalysis.coutTaxiActuel / 1000).toFixed(0) : (economicAnalysis.coutTaxiOptimise / 1000).toFixed(0)}k€
+                      {hyp === 'current' ? (economicAnalysis.coutTransportActuel / 1000).toFixed(0) : (economicAnalysis.coutTransportOptimise / 1000).toFixed(0)}k€
                     </p>
                     <p className={`text-xs ${hyp !== 'current' ? 'text-emerald-500' : 'text-slate-400'}`}>
-                      {hyp !== 'current' && <span className="font-medium">−{(economicAnalysis.economieTaxi / 1000).toFixed(0)}k€/an</span>}
+                      {hyp !== 'current' && <span className="font-medium">−{(economicAnalysis.economieTransport / 1000).toFixed(0)}k€/an</span>}
                       {hyp === 'current' && 'budget annuel'}
                     </p>
                   </div>
@@ -1653,7 +1859,7 @@ IMPORTANT:
                 <div className="mt-4 pt-4 border-t border-slate-100">
                   {hyp === 'current' ? (
                     <p className="text-sm text-slate-500">
-                      <span className="font-medium text-slate-600">Constat :</span> Le budget transport actuel ({(economicAnalysis.coutTaxiActuel / 1000).toFixed(0)}k€/an) 
+                      <span className="font-medium text-slate-600">Constat :</span> Le budget transport actuel ({(economicAnalysis.coutTransportActuel / 1000).toFixed(0)}k€/an) 
                       représente l'équivalent de <span className="font-semibold text-slate-700">{economicAnalysis.coutActuelEnPostes} postes</span> d'accompagnement à temps plein 
                       (base : {COST_CONSTANTS.SALAIRE_EDUCATEUR.toLocaleString()}€/an chargé).
                     </p>
@@ -1784,13 +1990,13 @@ IMPORTANT:
                           )}
                           <div className="bg-red-50 rounded-lg p-3 border border-red-200">
                             <p className="text-xs text-red-600">Coût taxi annuel (actuel)</p>
-                            <p className="text-xl font-bold text-red-700">{economicAnalysis.coutTaxiActuel.toLocaleString()} €</p>
+                            <p className="text-xl font-bold text-red-700">{economicAnalysis.coutTransportActuel.toLocaleString()} €</p>
                             <p className="text-xs text-slate-500">{COST_CONSTANTS.TAXI_KM}€/km × {economicAnalysis.kmAnActuel.toLocaleString()} km</p>
                           </div>
                           {hyp !== 'current' && (
                             <div className="bg-emerald-100 rounded-lg p-3 border-2 border-emerald-400">
                               <p className="text-xs text-emerald-700 font-medium">💰 Économie transport/an</p>
-                              <p className="text-2xl font-black text-emerald-700">{economicAnalysis.economieTaxi.toLocaleString()} €</p>
+                              <p className="text-2xl font-black text-emerald-700">{economicAnalysis.economieTransport.toLocaleString()} €</p>
                             </div>
                           )}
                         </div>
@@ -1876,7 +2082,7 @@ IMPORTANT:
                             </div>
                             <div className="w-full md:w-auto bg-white/20 rounded-lg px-6 py-3 text-center">
                               <TrendingDown className="w-8 h-8 mx-auto mb-1" />
-                              <p className="text-2xl font-bold">−{((economicAnalysis.economieTaxi / economicAnalysis.coutTaxiActuel) * 100).toFixed(0)}%</p>
+                              <p className="text-2xl font-bold">−{((economicAnalysis.economieTransport / economicAnalysis.coutTransportActuel) * 100).toFixed(0)}%</p>
                               <p className="text-xs">de coûts transport</p>
                             </div>
                           </div>
@@ -2238,6 +2444,106 @@ IMPORTANT:
           margin: 12px;
         }
       `}</style>
+
+      {/* Chatbot Flottant */}
+      <div className="fixed bottom-6 right-6 z-50">
+        {/* Bouton d'ouverture */}
+        {!chatOpen && (
+          <button
+            onClick={() => setChatOpen(true)}
+            className="w-14 h-14 rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg hover:shadow-xl hover:scale-110 transition-all flex items-center justify-center"
+          >
+            <MessageCircle className="w-6 h-6" />
+          </button>
+        )}
+
+        {/* Fenêtre de chat */}
+        {chatOpen && (
+          <div className={`w-96 rounded-2xl shadow-2xl overflow-hidden flex flex-col ${darkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200'}`} style={{ height: '500px' }}>
+            {/* Header */}
+            <div className="bg-gradient-to-r from-violet-600 to-fuchsia-600 p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                  <Brain className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <p className="text-white font-semibold text-sm">Assistant VyV3</p>
+                  <p className="text-white/70 text-xs">Posez vos questions sur les données</p>
+                </div>
+              </div>
+              <div className="flex gap-1">
+                <button onClick={clearChat} className="p-1.5 hover:bg-white/20 rounded-lg transition-all" title="Effacer l'historique">
+                  <RefreshCw className="w-4 h-4 text-white/70" />
+                </button>
+                <button onClick={() => setChatOpen(false)} className="p-1.5 hover:bg-white/20 rounded-lg transition-all">
+                  <Minimize2 className="w-4 h-4 text-white/70" />
+                </button>
+              </div>
+            </div>
+
+            {/* Messages */}
+            <div className={`flex-1 overflow-y-auto p-4 space-y-3 ${darkMode ? 'bg-slate-900' : 'bg-slate-50'}`}>
+              {chatMessages.length === 0 && (
+                <div className="text-center py-8">
+                  <Brain className={`w-12 h-12 mx-auto mb-3 ${darkMode ? 'text-slate-600' : 'text-slate-300'}`} />
+                  <p className={`text-sm ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Posez une question sur les données transport, les coûts ou les hypothèses.
+                  </p>
+                </div>
+              )}
+              {chatMessages.map((msg, i) => (
+                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[85%] rounded-2xl px-4 py-2 text-sm ${
+                    msg.role === 'user' 
+                      ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-br-md' 
+                      : darkMode 
+                        ? 'bg-slate-700 text-slate-200 rounded-bl-md' 
+                        : 'bg-white text-slate-700 shadow-sm rounded-bl-md'
+                  }`}>
+                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                  </div>
+                </div>
+              ))}
+              {chatLoading && (
+                <div className="flex justify-start">
+                  <div className={`rounded-2xl px-4 py-3 ${darkMode ? 'bg-slate-700' : 'bg-white shadow-sm'}`}>
+                    <div className="flex gap-1">
+                      <div className="w-2 h-2 bg-violet-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                      <div className="w-2 h-2 bg-violet-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                      <div className="w-2 h-2 bg-violet-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Input */}
+            <div className={`p-3 border-t ${darkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'}`}>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && sendChatMessage()}
+                  placeholder="Posez votre question..."
+                  className={`flex-1 px-4 py-2 rounded-xl text-sm outline-none transition-all ${
+                    darkMode 
+                      ? 'bg-slate-700 text-white placeholder-slate-400 focus:ring-2 focus:ring-violet-500' 
+                      : 'bg-slate-100 text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-violet-500'
+                  }`}
+                />
+                <button
+                  onClick={sendChatMessage}
+                  disabled={!chatInput.trim() || chatLoading}
+                  className="p-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg transition-all"
+                >
+                  <Send className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
