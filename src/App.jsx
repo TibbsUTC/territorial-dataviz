@@ -1486,7 +1486,7 @@ IMPORTANT:
           ═══════════════════════════════════════════════════════════════════ */
           <div className="grid grid-cols-[1fr,320px] gap-6">
             {/* Carte */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden relative" style={{ height: '650px' }}>
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 relative" style={{ height: '650px', overflow: 'hidden' }}>
               <MapContainer 
                 ref={mapRef}
                 center={[47.55, 4.30]} 
@@ -1801,7 +1801,7 @@ IMPORTANT:
           
           {/* Bouton flottant pour fermer le trajet */}
           {selectedFlow && (
-            <div className="absolute top-4 left-14 z-[1000] bg-white rounded-xl shadow-lg border border-emerald-200 p-3 max-w-[200px]">
+            <div className="absolute top-4 left-14 z-[500] bg-white rounded-xl shadow-lg border border-emerald-200 p-3 max-w-[200px]">
               <div className="flex items-center justify-between gap-2 mb-2">
                 <span className="text-xs font-bold text-emerald-700 truncate">{selectedFlow.from}</span>
                 <button 
@@ -3099,6 +3099,12 @@ IMPORTANT:
         }
         .leaflet-popup-content {
           margin: 12px;
+        }
+        .leaflet-popup {
+          z-index: 800 !important;
+        }
+        .leaflet-popup-pane {
+          z-index: 800 !important;
         }
       `}</style>
 
