@@ -272,41 +272,8 @@ const HYPOTHESES = {
       },
     ]
   },
-  hyp2: {
-    name: "Hypothèse 2",
-    description: "4 antennes pour conquérir l'Est et verrouiller l'Ouest",
-    items: [
-      { 
-        nom: "Antenne SUD (Saulieu)", 
-        coords: [47.2833, 4.2333],
-        range: 15,
-        zone: "SUD",
-        justification: "Verrouillage Sud - isolement Morvan"
-      },
-      { 
-        nom: "Antenne OUEST (Époisses)", 
-        coords: [47.5000, 4.1667], // Coordonnées GPS Époisses
-        range: 15,
-        zone: "OUEST",
-        justification: "Zone blanche Semur-Avallon (Rouvray, Guillon, Arcy)"
-      },
-      { 
-        nom: "Antenne EST (Is-sur-Tille)", 
-        coords: [47.5167, 5.1000], // Coordonnées GPS Is-sur-Tille
-        range: 15,
-        zone: "EST",
-        justification: "Conquête zone périurbaine Dijon - flux naturel Est"
-      },
-      { 
-        nom: "Antenne NE (Selongey)", 
-        coords: [47.5833, 5.1833], // Coordonnées GPS Selongey
-        range: 12,
-        zone: "NORD-EST",
-        justification: "Renforcement conquête Nord-Est vers Dijon"
-      },
-    ]
-  }
 };
+
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // FONCTIONS UTILITAIRES
@@ -581,7 +548,7 @@ export default function App() {
 
 function Dashboard({ onLogout }) {
   const [activeTab, setActiveTab] = useState('ALL');
-  const [hyp, setHyp] = useState('current'); // 'current', 'hyp1', 'hyp2', 'hyp3'
+  const [hyp, setHyp] = useState('current'); // 'current', 'hyp1', 'hyp3' (IA)
   const [view, setView] = useState('map'); // 'map', 'table', 'dataviz', 'ia'
   const [showZones, setShowZones] = useState(true);
   const [showFlows, setShowFlows] = useState(false);
@@ -975,7 +942,6 @@ function Dashboard({ onLogout }) {
     
     const etatActuel = calcHypStats('current');
     const hyp1Stats = calcHypStats('hyp1');
-    const hyp2Stats = calcHypStats('hyp2');
     const hyp3Stats = iaHypothesis ? calcHypStats('hyp3') : null;
     
     // Calcul économique pour chaque hypothèse
@@ -1036,13 +1002,7 @@ function Dashboard({ onLogout }) {
           ...hyp1Stats,
           economie: calcEcoForHyp(hyp1Stats, 'hyp1')
         },
-        hyp2: {
-          nom: HYPOTHESES.hyp2.name,
-          antennes: HYPOTHESES.hyp2.items.map(a => a.nom),
-          ...hyp2Stats,
-          economie: calcEcoForHyp(hyp2Stats, 'hyp2')
-        },
-        hyp3: hyp3Stats ? {
+        hypIA: hyp3Stats ? {
           nom: iaHypothesis.name,
           antennes: iaHypothesis.items.map(a => a.nom),
           ...hyp3Stats,
@@ -1080,9 +1040,6 @@ ETAT ACTUEL: Couverture ${ctx.etatActuel.couverture}% | Distance moy ${ctx.etatA
 
 HYPOTHESE 1 (${ctx.hypotheses.hyp1.nom}): ${ctx.hypotheses.hyp1.antennes.join(', ')}
 Couverture ${ctx.hypotheses.hyp1.couverture}% | ${ctx.hypotheses.hyp1.distMoy}km | Eco ${ctx.hypotheses.hyp1.economie?.economieNette.toLocaleString()}EUR
-
-HYPOTHESE 2 (${ctx.hypotheses.hyp2.nom}): ${ctx.hypotheses.hyp2.antennes.join(', ')}
-Couverture ${ctx.hypotheses.hyp2.couverture}% | ${ctx.hypotheses.hyp2.distMoy}km | Eco ${ctx.hypotheses.hyp2.economie?.economieNette.toLocaleString()}EUR
 
 ${hyp3 ? `HYPOTHESE IA ACTUELLE (${hyp3.nom}): ${hyp3.antennes.join(', ')}
 Couverture ${hyp3.couverture}% | ${hyp3.distMoy}km | ${hyp3.aberrants} aberrants | Eco ${hyp3.economie?.economieNette.toLocaleString()}EUR` : 'HYPOTHESE IA: Non generee'}
@@ -1214,7 +1171,6 @@ QUESTION: "${userMessage}"`;
         coords: g.coords
       })),
       hypothese1: HYPOTHESES.hyp1,
-      hypothese2: HYPOTHESES.hyp2,
       zoneBlanches: aggregatedData.filter(g => (g.totalKm / g.items.length) > 35).map(g => g.lieu)
     };
 
@@ -1233,17 +1189,16 @@ ${JSON.stringify(dataContext, null, 2)}
 - IME Semur (47.4833, 4.3333) 
 - CME Montbard (47.6250, 4.3333)
 
-HYPOTHÈSES DÉJÀ PROPOSÉES:
-1. Hypothèse 1: ${JSON.stringify(HYPOTHESES.hyp1.items.map(a => ({ nom: a.nom, coords: a.coords, zone: a.zone })))}
-2. Hypothèse 2: ${JSON.stringify(HYPOTHESES.hyp2.items.map(a => ({ nom: a.nom, coords: a.coords, zone: a.zone })))}
+HYPOTHÈSE EXISTANTE:
+- Hypothèse 1: ${JSON.stringify(HYPOTHESES.hyp1.items.map(a => ({ nom: a.nom, coords: a.coords, zone: a.zone })))}
 
 ZONES BLANCHES IDENTIFIÉES (communes > 35km moy.):
 ${dataContext.zoneBlanches.join(', ')}
 
 MISSION:
 1. Analyse les données et identifie les patterns, forces et faiblesses du maillage actuel
-2. Évalue objectivement les hypothèses 1 et 2
-3. PROPOSE UNE HYPOTHÈSE 3 INNOVANTE différente des 2 premières, qui pourrait:
+2. Évalue objectivement l'hypothèse 1
+3. PROPOSE UNE HYPOTHÈSE IA INNOVANTE différente, qui pourrait:
    - Mieux couvrir les zones blanches
    - Réduire encore plus les distances
    - Proposer une approche créative (mobile, hub, partenariat, etc.)
@@ -1261,12 +1216,7 @@ FORMAT DE RÉPONSE OBLIGATOIRE (JSON):
     "avantages": ["avantage 1"],
     "inconvenients": ["inconvénient 1"]
   },
-  "evaluationHyp2": {
-    "score": 6,
-    "avantages": ["avantage 1"],
-    "inconvenients": ["inconvénient 1"]
-  },
-  "hypothese3": {
+  "hypotheseIA": {
     "name": "Hypothèse 3 : [Nom créatif]",
     "description": "Description courte",
     "approche": "Explication de l'approche innovante",
@@ -1442,11 +1392,6 @@ IMPORTANT:
                 ${hyp === 'hyp1' ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
               Hypothèse 1
             </button>
-            <button onClick={() => setHyp('hyp2')}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all
-                ${hyp === 'hyp2' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
-              Hypothèse 2
-            </button>
             {iaHypothesis && (
               <button onClick={() => setHyp('hyp3')}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-1
@@ -1462,11 +1407,11 @@ IMPORTANT:
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={showZones} onChange={() => setShowZones(!showZones)} className="rounded border-slate-300" />
               <span className="text-sm text-slate-600">Zones de couverture</span>
-            </label>
+          </label>
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={showFlows} onChange={() => setShowFlows(!showFlows)} className="rounded border-slate-300 accent-violet-600" />
               <span className="text-sm text-slate-600">Flux trajets</span>
-            </label>
+          </label>
           </div>
         </div>
 
@@ -1578,7 +1523,7 @@ IMPORTANT:
                   const directions = ['right', 'left', 'top', 'bottom'];
                   const direction = directions[i % 4];
                   const offsets = { right: [12, 0], left: [-12, 0], top: [0, -12], bottom: [0, 12] };
-                  return (
+              return (
                   <CircleMarker key={`hyp-ant-${i}`} center={ant.coords} radius={10}
                     pathOptions={{ 
                       color: '#fff', 
@@ -1588,16 +1533,16 @@ IMPORTANT:
                     <Tooltip permanent direction={direction} offset={offsets[direction]} className="antenne-tooltip">
                       <span className="font-semibold text-xs whitespace-nowrap">{ant.nom}</span>
                     </Tooltip>
-                    <Popup>
+                  <Popup>
                       <div className="text-sm">
                         <p className="font-bold">{ant.nom}</p>
                         <p className="text-slate-500">Antenne proposée • {ant.range} km</p>
                         {ant.justification && <p className="text-xs text-slate-400 mt-1 italic">{ant.justification}</p>}
                       </div>
-                    </Popup>
+                  </Popup>
                 </CircleMarker>
-                  );
-              })}
+              );
+            })}
 
                 {/* Enfants IME par commune */}
                 {(activeTab === 'ALL' || activeTab === 'IME') && aggregatedData.filter(g => g.ime > 0).map((group, i) => {
@@ -2784,32 +2729,9 @@ IMPORTANT:
                       </div>
                     </div>
                   )}
-                  
-                  {iaAnalysis.evaluationHyp2 && (
-                    <div className="bg-white rounded-xl shadow-sm border border-blue-200 p-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <h4 className="font-bold text-slate-800">Évaluation Hypothèse 2</h4>
-                        <span className="text-2xl font-bold text-blue-600">{iaAnalysis.evaluationHyp2.score}/10</span>
-                      </div>
-                      <div className="space-y-3">
-                        <div>
-                          <p className="text-xs font-medium text-emerald-700 mb-1">Avantages</p>
-                          {iaAnalysis.evaluationHyp2.avantages?.map((a, i) => (
-                            <p key={i} className="text-sm text-slate-600">+ {a}</p>
-                          ))}
-                        </div>
-                        <div>
-                          <p className="text-xs font-medium text-red-700 mb-1">Inconvénients</p>
-                          {iaAnalysis.evaluationHyp2.inconvenients?.map((a, i) => (
-                            <p key={i} className="text-sm text-slate-600">- {a}</p>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
 
-                {/* Hypothèse 3 générée */}
+                {/* Hypothèse IA générée */}
                 {iaHypothesis && (
                   <div className="bg-gradient-to-br from-violet-50 to-fuchsia-50 rounded-xl shadow-lg border-2 border-violet-300 p-6 relative overflow-hidden">
                     <div className="absolute top-4 right-4">
