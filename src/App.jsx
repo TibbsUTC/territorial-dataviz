@@ -52,7 +52,6 @@ const COMMUNES_COORDS = {
   "LIERNAIS": [47.2167, 4.2833], "SAULIEU": [47.2833, 4.2333],
   "MONTLAY": [47.3167, 4.2000], "PRECY SOUS THIL": [47.3833, 4.3167],
   "BRIANNY": [47.4167, 4.2667], "COUTARNOUX": [47.5500, 3.9500],
-  "LYON": [45.7640, 4.8357],
   // Communes IME - Zone Centre
   "VENAREY": [47.5417, 4.4583], "VENAREY LES LAUMES": [47.5417, 4.4583],
   "MAGNY LA VILLE": [47.4500, 4.3667], "VITTEAUX": [47.4000, 4.5333],
@@ -1484,7 +1483,7 @@ IMPORTANT:
           ═══════════════════════════════════════════════════════════════════ */
           <div className="grid grid-cols-[1fr,320px] gap-6">
             {/* Carte */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden" style={{ height: '650px' }}>
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden relative" style={{ height: '650px' }}>
               <MapContainer 
                 center={[47.55, 4.30]} 
                 zoom={9} 
@@ -1652,17 +1651,28 @@ IMPORTANT:
                             })}
                           </div>
                           <button
-                            onClick={() => setSelectedFlow({
-                              from: group.lieu,
-                              fromCoords: [group.coords[0], group.coords[1] + offset],
-                              toCoords: etabCoords,
-                              toName: etabMatch?.nom || mainEtab,
-                              distance: displayKm,
-                              type: 'IME'
-                            })}
-                            className="mt-2 w-full py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 flex items-center justify-center gap-1"
+                            onClick={() => {
+                              if (selectedFlow?.from === group.lieu) {
+                                setSelectedFlow(null);
+                              } else {
+                                setSelectedFlow({
+                                  from: group.lieu,
+                                  fromCoords: [group.coords[0], group.coords[1] + offset],
+                                  toCoords: etabCoords,
+                                  toName: etabMatch?.nom || mainEtab,
+                                  distance: displayKm,
+                                  type: 'IME'
+                                });
+                              }
+                            }}
+                            className={`mt-2 w-full py-1.5 text-xs rounded-lg flex items-center justify-center gap-1 transition-colors ${
+                              selectedFlow?.from === group.lieu 
+                                ? 'bg-emerald-600 text-white hover:bg-emerald-700' 
+                                : 'bg-blue-600 text-white hover:bg-blue-700'
+                            }`}
                           >
-                            <MapPinned className="w-3 h-3" /> Voir le trajet
+                            <MapPinned className="w-3 h-3" /> 
+                            {selectedFlow?.from === group.lieu ? 'Masquer le trajet' : 'Voir le trajet'}
                           </button>
                         </div>
                       </Popup>
@@ -1726,17 +1736,28 @@ IMPORTANT:
                             })}
                           </div>
                           <button
-                            onClick={() => setSelectedFlow({
-                              from: group.lieu,
-                              fromCoords: [group.coords[0], group.coords[1] + offset],
-                              toCoords: etabCoords,
-                              toName: etabMatch?.nom || mainEtab,
-                              distance: displayKm,
-                              type: 'SESSAD'
-                            })}
-                            className="mt-2 w-full py-1.5 bg-orange-500 text-white text-xs rounded-lg hover:bg-orange-600 flex items-center justify-center gap-1"
+                            onClick={() => {
+                              if (selectedFlow?.from === group.lieu) {
+                                setSelectedFlow(null);
+                              } else {
+                                setSelectedFlow({
+                                  from: group.lieu,
+                                  fromCoords: [group.coords[0], group.coords[1] + offset],
+                                  toCoords: etabCoords,
+                                  toName: etabMatch?.nom || mainEtab,
+                                  distance: displayKm,
+                                  type: 'SESSAD'
+                                });
+                              }
+                            }}
+                            className={`mt-2 w-full py-1.5 text-xs rounded-lg flex items-center justify-center gap-1 transition-colors ${
+                              selectedFlow?.from === group.lieu 
+                                ? 'bg-emerald-600 text-white hover:bg-emerald-700' 
+                                : 'bg-orange-500 text-white hover:bg-orange-600'
+                            }`}
                           >
-                            <MapPinned className="w-3 h-3" /> Voir le trajet
+                            <MapPinned className="w-3 h-3" /> 
+                            {selectedFlow?.from === group.lieu ? 'Masquer le trajet' : 'Voir le trajet'}
                           </button>
                         </div>
                       </Popup>
@@ -1769,6 +1790,29 @@ IMPORTANT:
                   </>
                 )}
           </MapContainer>
+          
+          {/* Bouton flottant pour fermer le trajet */}
+          {selectedFlow && (
+            <div className="absolute top-4 left-14 z-[1000] bg-white rounded-xl shadow-lg border border-emerald-200 p-3 max-w-[200px]">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="text-xs font-bold text-emerald-700 truncate">{selectedFlow.from}</span>
+                <button 
+                  onClick={() => setSelectedFlow(null)}
+                  className="p-1 hover:bg-red-100 rounded-full transition-colors flex-shrink-0"
+                  title="Masquer le trajet"
+                >
+                  <X className="w-4 h-4 text-red-600" />
+                </button>
+              </div>
+              <div className="text-center">
+                <span className={`text-lg font-bold ${
+                  selectedFlow.distance > 50 ? 'text-red-600' : 
+                  selectedFlow.distance > 35 ? 'text-orange-600' : 'text-emerald-600'
+                }`}>{selectedFlow.distance.toFixed(1)} km</span>
+                <p className="text-xs text-slate-500">→ {selectedFlow.toName}</p>
+              </div>
+            </div>
+          )}
         </div>
 
             {/* Sidebar */}
