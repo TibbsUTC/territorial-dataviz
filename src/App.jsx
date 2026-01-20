@@ -1557,12 +1557,12 @@ IMPORTANT:
           ═══════════════════════════════════════════════════════════════════ */
           <div className="grid grid-cols-[1fr,320px] gap-6">
             {/* Carte */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 relative" style={{ height: '650px', overflow: 'hidden' }}>
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 relative" style={{ height: '500px', overflow: 'hidden', zIndex: 10000, position: 'relative' }}>
               <MapContainer 
                 ref={mapRef}
                 center={[47.55, 4.30]} 
                 zoom={9} 
-                style={{ height: '100%', width: '100%' }}
+                style={{ height: '100%', width: '100%', zIndex: 10000 }}
                 maxBounds={[[46.8, 3.4], [48.3, 5.8]]}
                 minZoom={8}
                 maxZoom={12}
@@ -1872,7 +1872,7 @@ IMPORTANT:
           
           {/* Bouton flottant pour fermer le trajet */}
           {selectedFlow && (
-            <div className="absolute top-4 left-14 z-[500] bg-white rounded-xl shadow-lg border border-emerald-200 p-3 max-w-[200px]">
+            <div className="absolute top-4 left-14 z-[10002] bg-white rounded-xl shadow-lg border border-emerald-200 p-3 max-w-[200px]">
               <div className="flex items-center justify-between gap-2 mb-2">
                 <span className="text-xs font-bold text-emerald-700 truncate">{selectedFlow.from}</span>
                 <button 
@@ -3334,22 +3334,25 @@ IMPORTANT:
           margin: 12px;
         }
         .leaflet-popup {
-          z-index: 1000 !important;
+          z-index: 10001 !important;
         }
         .leaflet-popup-pane {
-          z-index: 1000 !important;
+          z-index: 10001 !important;
+        }
+        .leaflet-container {
+          z-index: 10000 !important;
         }
         .leaflet-pane {
-          z-index: 400 !important;
+          z-index: 10000 !important;
         }
         .leaflet-overlay-pane {
-          z-index: 500 !important;
+          z-index: 10000 !important;
         }
         .leaflet-marker-pane {
-          z-index: 600 !important;
+          z-index: 10000 !important;
         }
         .leaflet-tooltip-pane {
-          z-index: 700 !important;
+          z-index: 10001 !important;
         }
       `}</style>
 
