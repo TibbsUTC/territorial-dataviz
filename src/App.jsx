@@ -640,6 +640,15 @@ function Dashboard({ onLogout }) {
   const [showCostAnalysis, setShowCostAnalysis] = useState(false);
   const [costLoading, setCostLoading] = useState(false);
 
+  // État pour le trajet sélectionné sur la carte
+  const [selectedFlow, setSelectedFlow] = useState(null);
+
+  // États pour recherche/tri/filtre du tableau
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState('lieu');
+  const [sortOrder, setSortOrder] = useState('asc');
+  const [filterStatus, setFilterStatus] = useState('all'); // 'all', 'critique', 'aberrant', 'ok'
+
   // Persistance localStorage pour l'IA
   useEffect(() => {
     if (iaAnalysis) {
@@ -673,6 +682,57 @@ function Dashboard({ onLogout }) {
     if (activeTab === 'IME') return IME_DATA.map(d => ({...d, source: 'IME'}));
     return SESSAD_DATA.map(d => ({...d, source: 'SESSAD'}));
   }, [activeTab]);
+
+  // Données filtrées et triées pour le tableau
+  const filteredAndSortedData = useMemo(() => {
+    let result = [...data];
+    
+    // Recherche
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      result = result.filter(item => 
+        item.lieu?.toLowerCase().includes(term) ||
+        item.handicap?.toLowerCase().includes(term) ||
+        item.etablissement?.toLowerCase().includes(term) ||
+        item.ecole?.toLowerCase().includes(term)
+      );
+    }
+    
+    // Filtre par statut
+    if (filterStatus !== 'all') {
+      result = result.filter(item => {
+        if (filterStatus === 'critique') return item.km > 50;
+        if (filterStatus === 'aberrant') return item.km > 35 && item.km <= 50;
+        if (filterStatus === 'ok') return item.km <= 35;
+        return true;
+      });
+    }
+    
+    // Tri
+    result.sort((a, b) => {
+      let valA, valB;
+      if (sortBy === 'km') {
+        valA = a.km || 0;
+        valB = b.km || 0;
+      } else if (sortBy === 'source') {
+        valA = a.source || '';
+        valB = b.source || '';
+      } else if (sortBy === 'etablissement') {
+        valA = a.etablissement || a.ecole || '';
+        valB = b.etablissement || b.ecole || '';
+      } else {
+        valA = a.lieu || '';
+        valB = b.lieu || '';
+      }
+      
+      if (typeof valA === 'string') {
+        return sortOrder === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+      }
+      return sortOrder === 'asc' ? valA - valB : valB - valA;
+    });
+    
+    return result;
+  }, [data, searchTerm, filterStatus, sortBy, sortOrder]);
 
   // Agrégation par commune
   const aggregatedData = useMemo(() => {
@@ -1547,9 +1607,18 @@ IMPORTANT:
                   const size = Math.min(Math.sqrt(imeItems.length) * 6 + 4, 20);
                   // Décalage vers la gauche si mode "Tous" et commune mixte
                   const offset = activeTab === 'ALL' && group.sessad > 0 ? -0.008 : 0;
+                  // Trouver l'établissement principal pour ce groupe
+                  const mainEtab = imeItems[0]?.etablissement || 'IME Semur';
+                  const etabMatch = ETABLISSEMENTS.find(e => mainEtab.includes(e.nom.replace('IME ', '').replace('CME ', '')));
+                  const etabCoords = etabMatch?.coords || ETABLISSEMENTS[1].coords;
                   return (
                     <CircleMarker key={`ime-${i}`} center={[group.coords[0], group.coords[1] + offset]} radius={size}
-                      pathOptions={{ color: '#fff', fillColor: '#3b82f6', fillOpacity: 0.9, weight: 1.5 }}>
+                      pathOptions={{ 
+                        color: selectedFlow?.from === group.lieu ? '#10b981' : '#fff', 
+                        fillColor: '#3b82f6', 
+                        fillOpacity: 0.9, 
+                        weight: selectedFlow?.from === group.lieu ? 3 : 1.5 
+                      }}>
                       <Tooltip direction="top" offset={[0, -5]}>
                         <span className="text-xs font-medium">{group.lieu} • {imeItems.length} IME</span>
                       </Tooltip>
@@ -1582,6 +1651,19 @@ IMPORTANT:
                               );
                             })}
                           </div>
+                          <button
+                            onClick={() => setSelectedFlow({
+                              from: group.lieu,
+                              fromCoords: [group.coords[0], group.coords[1] + offset],
+                              toCoords: etabCoords,
+                              toName: etabMatch?.nom || mainEtab,
+                              distance: displayKm,
+                              type: 'IME'
+                            })}
+                            className="mt-2 w-full py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 flex items-center justify-center gap-1"
+                          >
+                            <MapPinned className="w-3 h-3" /> Voir le trajet
+                          </button>
                         </div>
                       </Popup>
                     </CircleMarker>
@@ -1599,9 +1681,18 @@ IMPORTANT:
                   const size = Math.min(Math.sqrt(sessadItems.length) * 6 + 4, 20);
                   // Décalage vers la droite si mode "Tous" et commune mixte
                   const offset = activeTab === 'ALL' && group.ime > 0 ? 0.008 : 0;
+                  // Trouver l'établissement/école pour ce groupe
+                  const mainEtab = sessadItems[0]?.etablissement || sessadItems[0]?.ecole || 'SESSAD';
+                  const etabMatch = ETABLISSEMENTS.find(e => mainEtab.includes(e.nom.replace('IME ', '').replace('CME ', '')));
+                  const etabCoords = etabMatch?.coords || ETABLISSEMENTS[1].coords; // Par défaut Semur
                   return (
                     <CircleMarker key={`sessad-${i}`} center={[group.coords[0], group.coords[1] + offset]} radius={size}
-                      pathOptions={{ color: '#fff', fillColor: '#f97316', fillOpacity: 0.9, weight: 1.5 }}>
+                      pathOptions={{ 
+                        color: selectedFlow?.from === group.lieu ? '#10b981' : '#fff', 
+                        fillColor: '#f97316', 
+                        fillOpacity: 0.9, 
+                        weight: selectedFlow?.from === group.lieu ? 3 : 1.5 
+                      }}>
                       <Tooltip direction="top" offset={[0, -5]}>
                         <span className="text-xs font-medium">{group.lieu} • {sessadItems.length} SESSAD</span>
                       </Tooltip>
@@ -1634,16 +1725,93 @@ IMPORTANT:
                               );
                             })}
                           </div>
+                          <button
+                            onClick={() => setSelectedFlow({
+                              from: group.lieu,
+                              fromCoords: [group.coords[0], group.coords[1] + offset],
+                              toCoords: etabCoords,
+                              toName: etabMatch?.nom || mainEtab,
+                              distance: displayKm,
+                              type: 'SESSAD'
+                            })}
+                            className="mt-2 w-full py-1.5 bg-orange-500 text-white text-xs rounded-lg hover:bg-orange-600 flex items-center justify-center gap-1"
+                          >
+                            <MapPinned className="w-3 h-3" /> Voir le trajet
+                          </button>
                         </div>
                       </Popup>
                     </CircleMarker>
                   );
                 })}
+
+                {/* Trajet sélectionné */}
+                {selectedFlow && (
+                  <>
+                    <Polyline
+                      positions={[selectedFlow.fromCoords, selectedFlow.toCoords]}
+                      pathOptions={{
+                        color: selectedFlow.type === 'IME' ? '#3b82f6' : '#f97316',
+                        weight: 4,
+                        opacity: 0.8,
+                        dashArray: '10, 10'
+                      }}
+                    />
+                    {/* Marqueur de destination */}
+                    <CircleMarker
+                      center={selectedFlow.toCoords}
+                      radius={8}
+                      pathOptions={{ color: '#10b981', fillColor: '#10b981', fillOpacity: 1, weight: 2 }}
+                    >
+                      <Tooltip permanent direction="bottom" offset={[0, 10]} className="custom-tooltip-green">
+                        <span className="text-xs">{selectedFlow.toName}</span>
+                      </Tooltip>
+                    </CircleMarker>
+                  </>
+                )}
           </MapContainer>
         </div>
 
             {/* Sidebar */}
             <div className="space-y-4">
+              {/* Trajet sélectionné */}
+              {selectedFlow && (
+                <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl shadow-sm border border-emerald-200 p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-bold text-emerald-800 flex items-center gap-2">
+                      <MapPinned className="w-4 h-4" /> Trajet sélectionné
+                    </h3>
+                    <button 
+                      onClick={() => setSelectedFlow(null)}
+                      className="p-1 hover:bg-emerald-200 rounded-full transition-colors"
+                    >
+                      <X className="w-4 h-4 text-emerald-700" />
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-3 h-3 rounded-full ${selectedFlow.type === 'IME' ? 'bg-blue-500' : 'bg-orange-500'}`} />
+                      <span className="text-sm font-medium text-slate-700">{selectedFlow.from}</span>
+                    </div>
+                    <div className="flex items-center justify-center text-emerald-600">
+                      <TrendingDown className="w-4 h-4 rotate-180" />
+                      <span className="text-xs mx-2">{selectedFlow.distance.toFixed(1)} km</span>
+                      <TrendingDown className="w-4 h-4" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-red-700" />
+                      <span className="text-sm font-medium text-slate-700">{selectedFlow.toName}</span>
+                    </div>
+                  </div>
+                  <div className={`mt-3 px-2 py-1 rounded text-center text-xs font-medium ${
+                    selectedFlow.distance > 50 ? 'bg-red-100 text-red-700' : 
+                    selectedFlow.distance > 35 ? 'bg-orange-100 text-orange-700' : 
+                    selectedFlow.distance > 15 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'
+                  }`}>
+                    {getDistanceLabel(selectedFlow.distance)}
+                  </div>
+                </div>
+              )}
+
               {/* Légende */}
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
                 <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
@@ -2680,24 +2848,126 @@ IMPORTANT:
              VUE TABLEAU
           ═══════════════════════════════════════════════════════════════════ */
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="px-4 py-3 bg-slate-50 border-b border-slate-200">
-              <h3 className="font-bold text-slate-800">Données brutes - {data.length} enregistrements</h3>
-              <p className="text-sm text-slate-500">1 enregistrement = 1 enfant anonymisé • Source : File active VyV3</p>
+            {/* Header avec recherche et filtres */}
+            <div className="px-4 py-4 bg-slate-50 border-b border-slate-200 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="font-bold text-slate-800">Données brutes - {filteredAndSortedData.length} / {data.length} enregistrements</h3>
+                  <p className="text-sm text-slate-500">1 enregistrement = 1 enfant anonymisé • Source : File active VyV3</p>
+                </div>
+              </div>
+              
+              {/* Barre de recherche et filtres */}
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Recherche */}
+                <div className="relative flex-1 min-w-[200px] max-w-md">
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Rechercher commune, handicap, établissement..."
+                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <Target className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  {searchTerm && (
+                    <button 
+                      onClick={() => setSearchTerm('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+                
+                {/* Filtre par statut */}
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">Tous les statuts</option>
+                  <option value="critique">🔴 Critique (&gt;50km)</option>
+                  <option value="aberrant">🟠 Aberrant (35-50km)</option>
+                  <option value="ok">🟢 OK (&lt;35km)</option>
+                </select>
+                
+                {/* Tri */}
+                <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-lg overflow-hidden">
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    className="px-3 py-2 text-sm border-0 focus:ring-0 bg-transparent"
+                  >
+                    <option value="lieu">Commune</option>
+                    <option value="km">Distance</option>
+                    <option value="source">Type</option>
+                    <option value="etablissement">Établissement</option>
+                  </select>
+                  <button
+                    onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                    className="px-2 py-2 text-slate-600 hover:bg-slate-100 border-l border-slate-300"
+                  >
+                    {sortOrder === 'asc' ? '↑' : '↓'}
+                  </button>
+                </div>
+                
+                {/* Reset */}
+                {(searchTerm || filterStatus !== 'all' || sortBy !== 'lieu') && (
+                  <button
+                    onClick={() => {
+                      setSearchTerm('');
+                      setFilterStatus('all');
+                      setSortBy('lieu');
+                      setSortOrder('asc');
+                    }}
+                    className="px-3 py-2 text-sm text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg"
+                  >
+                    Réinitialiser
+                  </button>
+                )}
+              </div>
             </div>
+            
             <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
               <table className="w-full text-sm">
                 <thead className="bg-slate-100 sticky top-0">
                   <tr>
-                    <th className="px-4 py-2 text-left font-semibold text-slate-700">Commune</th>
-                    <th className="px-4 py-2 text-left font-semibold text-slate-700">Source</th>
+                    <th 
+                      onClick={() => { setSortBy('lieu'); setSortOrder(prev => sortBy === 'lieu' ? (prev === 'asc' ? 'desc' : 'asc') : 'asc'); }}
+                      className="px-4 py-2 text-left font-semibold text-slate-700 cursor-pointer hover:bg-slate-200 select-none"
+                    >
+                      Commune {sortBy === 'lieu' && (sortOrder === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th 
+                      onClick={() => { setSortBy('source'); setSortOrder(prev => sortBy === 'source' ? (prev === 'asc' ? 'desc' : 'asc') : 'asc'); }}
+                      className="px-4 py-2 text-left font-semibold text-slate-700 cursor-pointer hover:bg-slate-200 select-none"
+                    >
+                      Source {sortBy === 'source' && (sortOrder === 'asc' ? '↑' : '↓')}
+                    </th>
                     <th className="px-4 py-2 text-left font-semibold text-slate-700">Handicap</th>
-                    <th className="px-4 py-2 text-left font-semibold text-slate-700">Établissement</th>
-                    <th className="px-4 py-2 text-right font-semibold text-slate-700">Distance</th>
+                    <th 
+                      onClick={() => { setSortBy('etablissement'); setSortOrder(prev => sortBy === 'etablissement' ? (prev === 'asc' ? 'desc' : 'asc') : 'asc'); }}
+                      className="px-4 py-2 text-left font-semibold text-slate-700 cursor-pointer hover:bg-slate-200 select-none"
+                    >
+                      Établissement {sortBy === 'etablissement' && (sortOrder === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th 
+                      onClick={() => { setSortBy('km'); setSortOrder(prev => sortBy === 'km' ? (prev === 'asc' ? 'desc' : 'asc') : 'desc'); }}
+                      className="px-4 py-2 text-right font-semibold text-slate-700 cursor-pointer hover:bg-slate-200 select-none"
+                    >
+                      Distance {sortBy === 'km' && (sortOrder === 'asc' ? '↑' : '↓')}
+                    </th>
                     <th className="px-4 py-2 text-center font-semibold text-slate-700">Statut</th>
               </tr>
             </thead>
             <tbody>
-                  {data.map((item, i) => (
+                  {filteredAndSortedData.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                        Aucun résultat trouvé pour "{searchTerm}"
+                      </td>
+                    </tr>
+                  ) : filteredAndSortedData.map((item, i) => (
                     <tr key={i} className={`border-b border-slate-100 hover:bg-slate-50 ${item.km > 50 ? 'bg-red-50' : item.km > 35 ? 'bg-orange-50' : ''}`}>
                       <td className="px-4 py-2 font-medium text-slate-800">{item.lieu}</td>
                       <td className="px-4 py-2">
