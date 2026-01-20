@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup, Circle, Tooltip, Marker, Polyline } from 'react-leaflet';
 import { MapPin, Users, Building2, AlertTriangle, Target, BarChart3, Eye, Table, Map, TrendingUp, Sparkles, PieChart, Brain, Download, RefreshCw, Zap, Save, CheckCircle, XCircle, Loader2, Calculator, Euro, Fuel, Clock, Heart, School, MapPinned, TrendingDown, Banknote, Car, LogOut, Moon, Sun, MessageCircle, Send, X, Minimize2 } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
@@ -641,6 +641,9 @@ function Dashboard({ onLogout }) {
 
   // État pour le trajet sélectionné sur la carte
   const [selectedFlow, setSelectedFlow] = useState(null);
+
+  // Ref pour la map Leaflet
+  const mapRef = useRef(null);
 
   // États pour recherche/tri/filtre du tableau
   const [searchTerm, setSearchTerm] = useState('');
@@ -1485,6 +1488,7 @@ IMPORTANT:
             {/* Carte */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden relative" style={{ height: '650px' }}>
               <MapContainer 
+                ref={mapRef}
                 center={[47.55, 4.30]} 
                 zoom={9} 
                 style={{ height: '100%', width: '100%' }}
@@ -1664,6 +1668,8 @@ IMPORTANT:
                                   type: 'IME'
                                 });
                               }
+                              // Fermer le popup automatiquement
+                              mapRef.current?.closePopup();
                             }}
                             className={`mt-2 w-full py-1.5 text-xs rounded-lg flex items-center justify-center gap-1 transition-colors ${
                               selectedFlow?.from === group.lieu 
@@ -1749,6 +1755,8 @@ IMPORTANT:
                                   type: 'SESSAD'
                                 });
                               }
+                              // Fermer le popup automatiquement
+                              mapRef.current?.closePopup();
                             }}
                             className={`mt-2 w-full py-1.5 text-xs rounded-lg flex items-center justify-center gap-1 transition-colors ${
                               selectedFlow?.from === group.lieu 
