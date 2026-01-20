@@ -1154,7 +1154,7 @@ QUESTION: "${userMessage}"`;
     } finally {
       setChatLoading(false);
     }
-  }, [chatInput, chatLoading, globalDataContext, iaHypothesis, setIaHypothesis, setHyp]);
+  }, [chatInput, chatLoading, globalDataContext, iaHypothesis, setIaHypotheses, setActiveIaHypIndex, activeIaHypIndex, setHyp]);
 
   // Génération de l'analyse IA globale
   const generateIAAnalysis = useCallback(async () => {
@@ -1407,7 +1407,7 @@ IMPORTANT:
               </button>
             ))}
             </div>
-          </div>
+        </div>
 
           {/* Hypothèses */}
           <div className="flex bg-white rounded-lg border border-slate-200 p-1">
