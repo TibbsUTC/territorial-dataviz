@@ -1216,13 +1216,37 @@ ZONES BLANCHES IDENTIFIÉES (communes > 35km moy.):
 ${dataContext.zoneBlanches.join(', ')}
 
 MISSION - SCÉNARIO IA #${scenarioNumber}:
-1. Analyse les données et identifie les patterns, forces et faiblesses
-2. ${iaHypotheses.length > 0 ? 'Analyse les FAIBLESSES des scénarios IA précédents et AMÉLIORE' : 'Évalue objectivement l\'hypothèse 1'}
-3. PROPOSE UN SCÉNARIO IA #${scenarioNumber} INNOVANT qui:
-   - ${iaHypotheses.length > 0 ? 'SURPASSE les scénarios précédents en couverture ET en innovation' : 'Mieux couvrir les zones blanches'}
-   - Réduise DRASTIQUEMENT les distances (objectif: -30% minimum)
+Tu dois OPTIMISER SIMULTANÉMENT 4 critères critiques:
+
+1. BIEN-ÊTRE ENFANT (PRIORITÉ #1):
+   - Réduire temps de transport (objectif: < 30min pour 80% des enfants)
+   - Minimiser fatigue et stress liés aux trajets longs
+   - Améliorer assiduité et qualité de vie
+   - Privilégier proximité écoles/établissements existants
+
+2. NOMBRE DE TRAJETS:
+   - Réduire le nombre total de trajets quotidiens
+   - Optimiser groupement/co-voiturage
+   - Réduire trajets aberrants (>35km) de 50% minimum
+
+3. BUDGET:
+   - Réduire coûts transport (objectif: -25% minimum vs état actuel)
+   - Optimiser investissements immobiliers (antennes)
+   - Maximiser ROI et économies nettes
+
+4. EMPREINTE CARBONE:
+   - Réduire km totaux parcourus (objectif: -30% minimum)
+   - Privilégier solutions locales/proximité
+   - Minimiser émissions CO2 (calcul: 0.21 kg CO2/km)
+
+APPROCHE:
+- Analyse les données et identifie les patterns, forces et faiblesses
+- ${iaHypotheses.length > 0 ? 'Analyse les FAIBLESSES des scénarios IA précédents et AMÉLIORE sur TOUS les critères' : 'Évalue objectivement l\'hypothèse 1'}
+- PROPOSE UN SCÉNARIO IA #${scenarioNumber} INNOVANT qui:
+   - ${iaHypotheses.length > 0 ? 'SURPASSE les scénarios précédents sur TOUS les critères' : 'Mieux couvrir les zones blanches'}
    - Approche CRÉATIVE et DIFFÉRENTE: mobile, hub, partenariat école, temps partagé, etc.
    - ${iaHypotheses.length > 0 ? 'ÉVITE les mêmes emplacements que les scénarios précédents' : ''}
+   - Justifie CHAQUE choix par des données concrètes
 
 FORMAT DE RÉPONSE OBLIGATOIRE (JSON):
 {
@@ -1238,7 +1262,7 @@ FORMAT DE RÉPONSE OBLIGATOIRE (JSON):
     "inconvenients": ["inconvénient 1"]
   },
   "hypotheseIA": {
-    "name": "Hypothèse 3 : [Nom créatif]",
+    "name": "Scénario IA #${scenarioNumber} : [Nom créatif]",
     "description": "Description courte",
     "approche": "Explication de l'approche innovante",
     "items": [
@@ -1247,12 +1271,54 @@ FORMAT DE RÉPONSE OBLIGATOIRE (JSON):
         "coords": [latitude, longitude],
         "range": 15,
         "zone": "NOM_ZONE",
-        "justification": "Pourquoi ce choix"
+        "justification": "Pourquoi ce choix précis (données chiffrées)"
       }
     ],
     "beneficesAttendus": ["bénéfice 1", "bénéfice 2"],
     "score": 8,
     "pourquoiMeilleur": "Explication de pourquoi ce scénario est meilleur que les précédents"
+  },
+  "auditabilite": {
+    "choixStrategiques": [
+      {
+        "decision": "Nom de la décision (ex: Antenne à Saulieu)",
+        "justification": "Pourquoi cette décision (données)",
+        "alternatives": ["Alternative 1 considérée", "Alternative 2"],
+        "pourquoiRejetees": "Pourquoi ces alternatives ont été rejetées",
+        "impactBienEtre": "Impact sur le bien-être des enfants (chiffré)",
+        "impactTrajets": "Impact sur le nombre de trajets (chiffré)",
+        "impactBudget": "Impact budgétaire (chiffré en EUR)",
+        "impactCarbone": "Impact empreinte carbone (chiffré en kg CO2/an)"
+      }
+    ],
+    "compromis": [
+      {
+        "compromis": "Description du compromis (ex: coût vs proximité)",
+        "choix": "Ce qui a été choisi",
+        "sacrifice": "Ce qui a été sacrifié",
+        "justification": "Pourquoi ce compromis est acceptable"
+      }
+    ],
+    "impactsGlobaux": {
+      "reductionDistance": "Réduction distance moyenne estimée (%)",
+      "reductionTrajets": "Réduction nombre trajets estimée (%)",
+      "reductionBudget": "Réduction budget transport estimée (EUR/an)",
+      "reductionCarbone": "Réduction CO2 estimée (kg CO2/an)",
+      "ameliorationBienEtre": "Amélioration bien-être estimée (description qualitative + quantitative)"
+    },
+    "risques": [
+      {
+        "risque": "Description du risque",
+        "probabilite": "Probabilité (faible/moyenne/élevée)",
+        "mitigation": "Comment le risque est mitigé"
+      }
+    ],
+    "hypotheses": [
+      {
+        "hypothese": "Hypothèse sous-jacente (ex: coût immobilier à X EUR/m2)",
+        "source": "Source de l'hypothèse ou justification"
+      }
+    ]
   },
   "recommandation": "Ta recommandation finale en 2-3 phrases"
 }
@@ -1292,6 +1358,7 @@ IMPORTANT:
           beneficesAttendus: hypData.beneficesAttendus,
           pourquoiMeilleur: hypData.pourquoiMeilleur,
           score: hypData.score,
+          auditabilite: analysisData.auditabilite || null,
           generatedAt: new Date().toISOString()
         };
         // Ajouter au tableau des scénarios IA
@@ -1422,16 +1489,42 @@ IMPORTANT:
               Hypothèse 1
             </button>
             {iaHypotheses.length > 0 && iaHypotheses.map((scenario, idx) => (
-              <button 
-                key={scenario.id || idx}
-                onClick={() => { setActiveIaHypIndex(idx); setHyp('hyp3'); }}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-1
-                  ${hyp === 'hyp3' && activeIaHypIndex === idx 
-                    ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white' 
-                    : 'text-slate-600 hover:bg-slate-50'}`}>
-                <Sparkles className="w-3 h-3" />
-                IA #{scenario.id || idx + 1}
-              </button>
+              <div key={scenario.id || idx} className="relative group">
+                <button 
+                  onClick={() => { setActiveIaHypIndex(idx); setHyp('hyp3'); }}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-1
+                    ${hyp === 'hyp3' && activeIaHypIndex === idx 
+                      ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white' 
+                      : 'text-slate-600 hover:bg-slate-50'}`}>
+                  <Sparkles className="w-3 h-3" />
+                  Scénario IA {scenario.id || idx + 1}
+                </button>
+                {iaHypotheses.length > 1 && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (window.confirm(`Supprimer le Scénario IA ${scenario.id || idx + 1} ?`)) {
+                        const newHypotheses = iaHypotheses.filter((_, i) => i !== idx);
+                        setIaHypotheses(newHypotheses);
+                        if (activeIaHypIndex >= newHypotheses.length) {
+                          setActiveIaHypIndex(Math.max(0, newHypotheses.length - 1));
+                        } else if (activeIaHypIndex > idx) {
+                          setActiveIaHypIndex(activeIaHypIndex - 1);
+                        }
+                        if (newHypotheses.length === 0) {
+                          setHyp('current');
+                        } else if (hyp === 'hyp3' && activeIaHypIndex === idx) {
+                          setActiveIaHypIndex(Math.max(0, idx - 1));
+                        }
+                      }
+                    }}
+                    className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Supprimer ce scénario"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
             ))}
           </div>
 
@@ -2834,6 +2927,191 @@ IMPORTANT:
                         Analyse coûts
                       </button>
                     </div>
+                  </div>
+                )}
+
+                {/* Auditabilité complète */}
+                {iaHypothesis?.auditabilite && (
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl shadow-lg border-2 border-blue-200 p-6 space-y-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center">
+                        <Eye className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-slate-800">Auditabilité & Transparence</h3>
+                        <p className="text-sm text-slate-600">Décisions, impacts et compromis expliqués</p>
+                      </div>
+                    </div>
+
+                    {/* Choix stratégiques */}
+                    {iaHypothesis.auditabilite.choixStrategiques && iaHypothesis.auditabilite.choixStrategiques.length > 0 && (
+                      <div className="bg-white rounded-lg border border-blue-100 p-5">
+                        <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                          <Target className="w-4 h-4 text-blue-600" />
+                          Choix Stratégiques
+                        </h4>
+                        <div className="space-y-4">
+                          {iaHypothesis.auditabilite.choixStrategiques.map((choix, i) => (
+                            <div key={i} className="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50/50 rounded-r">
+                              <h5 className="font-semibold text-slate-800 mb-2">{choix.decision}</h5>
+                              <p className="text-sm text-slate-700 mb-2">{choix.justification}</p>
+                              {choix.alternatives && choix.alternatives.length > 0 && (
+                                <div className="mb-2">
+                                  <p className="text-xs font-medium text-slate-600 mb-1">Alternatives considérées :</p>
+                                  <ul className="text-xs text-slate-600 list-disc list-inside">
+                                    {choix.alternatives.map((alt, j) => (
+                                      <li key={j}>{alt}</li>
+                                    ))}
+                                  </ul>
+                                  {choix.pourquoiRejetees && (
+                                    <p className="text-xs text-slate-500 mt-1 italic">→ {choix.pourquoiRejetees}</p>
+                                  )}
+                                </div>
+                              )}
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3 text-xs">
+                                {choix.impactBienEtre && (
+                                  <div className="bg-emerald-50 rounded p-2">
+                                    <p className="font-medium text-emerald-700">Bien-être</p>
+                                    <p className="text-emerald-600">{choix.impactBienEtre}</p>
+                                  </div>
+                                )}
+                                {choix.impactTrajets && (
+                                  <div className="bg-blue-50 rounded p-2">
+                                    <p className="font-medium text-blue-700">Trajets</p>
+                                    <p className="text-blue-600">{choix.impactTrajets}</p>
+                                  </div>
+                                )}
+                                {choix.impactBudget && (
+                                  <div className="bg-amber-50 rounded p-2">
+                                    <p className="font-medium text-amber-700">Budget</p>
+                                    <p className="text-amber-600">{choix.impactBudget}</p>
+                                  </div>
+                                )}
+                                {choix.impactCarbone && (
+                                  <div className="bg-green-50 rounded p-2">
+                                    <p className="font-medium text-green-700">CO₂</p>
+                                    <p className="text-green-600">{choix.impactCarbone}</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Compromis */}
+                    {iaHypothesis.auditabilite.compromis && iaHypothesis.auditabilite.compromis.length > 0 && (
+                      <div className="bg-white rounded-lg border border-amber-100 p-5">
+                        <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                          <TrendingDown className="w-4 h-4 text-amber-600" />
+                          Compromis Acceptés
+                        </h4>
+                        <div className="space-y-3">
+                          {iaHypothesis.auditabilite.compromis.map((comp, i) => (
+                            <div key={i} className="border-l-4 border-amber-500 pl-4 py-2 bg-amber-50/50 rounded-r">
+                              <p className="font-semibold text-slate-800 mb-1">{comp.compromis}</p>
+                              <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div>
+                                  <p className="text-emerald-600 font-medium">✓ {comp.choix}</p>
+                                </div>
+                                <div>
+                                  <p className="text-red-600 font-medium">✗ {comp.sacrifice}</p>
+                                </div>
+                              </div>
+                              <p className="text-xs text-slate-600 mt-2 italic">{comp.justification}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Impacts globaux */}
+                    {iaHypothesis.auditabilite.impactsGlobaux && (
+                      <div className="bg-white rounded-lg border border-emerald-100 p-5">
+                        <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                          <TrendingUp className="w-4 h-4 text-emerald-600" />
+                          Impacts Globaux Estimés
+                        </h4>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          {iaHypothesis.auditabilite.impactsGlobaux.reductionDistance && (
+                            <div className="bg-blue-50 rounded-lg p-3">
+                              <p className="text-xs font-medium text-blue-600 mb-1">Distance</p>
+                              <p className="text-lg font-bold text-blue-700">{iaHypothesis.auditabilite.impactsGlobaux.reductionDistance}</p>
+                            </div>
+                          )}
+                          {iaHypothesis.auditabilite.impactsGlobaux.reductionTrajets && (
+                            <div className="bg-purple-50 rounded-lg p-3">
+                              <p className="text-xs font-medium text-purple-600 mb-1">Trajets</p>
+                              <p className="text-lg font-bold text-purple-700">{iaHypothesis.auditabilite.impactsGlobaux.reductionTrajets}</p>
+                            </div>
+                          )}
+                          {iaHypothesis.auditabilite.impactsGlobaux.reductionBudget && (
+                            <div className="bg-emerald-50 rounded-lg p-3">
+                              <p className="text-xs font-medium text-emerald-600 mb-1">Budget</p>
+                              <p className="text-lg font-bold text-emerald-700">{iaHypothesis.auditabilite.impactsGlobaux.reductionBudget}</p>
+                            </div>
+                          )}
+                          {iaHypothesis.auditabilite.impactsGlobaux.reductionCarbone && (
+                            <div className="bg-green-50 rounded-lg p-3">
+                              <p className="text-xs font-medium text-green-600 mb-1">CO₂</p>
+                              <p className="text-lg font-bold text-green-700">{iaHypothesis.auditabilite.impactsGlobaux.reductionCarbone}</p>
+                            </div>
+                          )}
+                        </div>
+                        {iaHypothesis.auditabilite.impactsGlobaux.ameliorationBienEtre && (
+                          <div className="mt-4 p-3 bg-emerald-50 rounded-lg">
+                            <p className="text-xs font-medium text-emerald-700 mb-1">Amélioration Bien-être</p>
+                            <p className="text-sm text-emerald-800">{iaHypothesis.auditabilite.impactsGlobaux.ameliorationBienEtre}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Risques */}
+                    {iaHypothesis.auditabilite.risques && iaHypothesis.auditabilite.risques.length > 0 && (
+                      <div className="bg-white rounded-lg border border-red-100 p-5">
+                        <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4 text-red-600" />
+                          Risques Identifiés
+                        </h4>
+                        <div className="space-y-3">
+                          {iaHypothesis.auditabilite.risques.map((risque, i) => (
+                            <div key={i} className="border-l-4 border-red-500 pl-4 py-2 bg-red-50/50 rounded-r">
+                              <div className="flex items-start justify-between mb-1">
+                                <p className="font-semibold text-slate-800">{risque.risque}</p>
+                                <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                  risque.probabilite === 'faible' ? 'bg-green-100 text-green-700' :
+                                  risque.probabilite === 'moyenne' ? 'bg-amber-100 text-amber-700' :
+                                  'bg-red-100 text-red-700'
+                                }`}>
+                                  {risque.probabilite}
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-600 mt-1">{risque.mitigation}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Hypothèses */}
+                    {iaHypothesis.auditabilite.hypotheses && iaHypothesis.auditabilite.hypotheses.length > 0 && (
+                      <div className="bg-white rounded-lg border border-slate-200 p-5">
+                        <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                          <Eye className="w-4 h-4 text-slate-600" />
+                          Hypothèses Sous-jacentes
+                        </h4>
+                        <div className="space-y-2">
+                          {iaHypothesis.auditabilite.hypotheses.map((hyp, i) => (
+                            <div key={i} className="text-sm">
+                              <p className="font-medium text-slate-700">{hyp.hypothese}</p>
+                              <p className="text-xs text-slate-500 italic">Source : {hyp.source}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
