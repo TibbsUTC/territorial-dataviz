@@ -593,14 +593,19 @@ function Dashboard({ onLogout }) {
       return saved ? JSON.parse(saved) : null;
     } catch { return null; }
   });
-  const [iaHypothesis, setIaHypothesis] = useState(() => {
+  // Stockage de plusieurs hypothèses IA
+  const [iaHypotheses, setIaHypotheses] = useState(() => {
     try {
-      const saved = localStorage.getItem('vyv3_ia_hypothesis');
-      return saved ? JSON.parse(saved) : null;
-    } catch { return null; }
+      const saved = localStorage.getItem('vyv3_ia_hypotheses');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
   });
+  const [activeIaHypIndex, setActiveIaHypIndex] = useState(0);
   const [iaSaved, setIaSaved] = useState(false);
   const [iaError, setIaError] = useState(null);
+  
+  // Hypothèse IA active (pour compatibilité avec le code existant)
+  const iaHypothesis = iaHypotheses.length > 0 ? iaHypotheses[activeIaHypIndex] : null;
   
   // États Analyse économique
   const [showCostAnalysis, setShowCostAnalysis] = useState(false);
@@ -626,17 +631,18 @@ function Dashboard({ onLogout }) {
   }, [iaAnalysis]);
 
   useEffect(() => {
-    if (iaHypothesis) {
-      localStorage.setItem('vyv3_ia_hypothesis', JSON.stringify(iaHypothesis));
+    if (iaHypotheses.length > 0) {
+      localStorage.setItem('vyv3_ia_hypotheses', JSON.stringify(iaHypotheses));
     }
-  }, [iaHypothesis]);
+  }, [iaHypotheses]);
 
   // Fonction pour effacer l'hypothèse IA sauvegardée
   const clearIAData = useCallback(() => {
     localStorage.removeItem('vyv3_ia_analysis');
-    localStorage.removeItem('vyv3_ia_hypothesis');
+    localStorage.removeItem('vyv3_ia_hypotheses');
     setIaAnalysis(null);
-    setIaHypothesis(null);
+    setIaHypotheses([]);
+    setActiveIaHypIndex(0);
     if (hyp === 'hyp3') setHyp('current');
   }, [hyp]);
 
@@ -1094,13 +1100,17 @@ Si modification rejetee:
             const parsed = JSON.parse(jsonMatch[0]);
             
             if (parsed.approved && parsed.modification) {
-              // Appliquer la modification
+              // Appliquer la modification à l'hypothèse active
               const newHypothesis = {
                 ...iaHypothesis,
                 name: parsed.modification.name || iaHypothesis.name,
                 items: parsed.modification.items || iaHypothesis.items
               };
-              setIaHypothesis(newHypothesis);
+              setIaHypotheses(prev => {
+                const updated = [...prev];
+                updated[activeIaHypIndex] = newHypothesis;
+                return updated;
+              });
               setHyp('hyp3');
               
               setChatMessages(prev => [...prev, { 
@@ -1174,7 +1184,16 @@ QUESTION: "${userMessage}"`;
       zoneBlanches: aggregatedData.filter(g => (g.totalKm / g.items.length) > 35).map(g => g.lieu)
     };
 
-    const prompt = `Tu es un expert en stratégie territoriale médico-sociale et en optimisation de couverture territoriale.
+    // Construire le contexte des scénarios précédents
+    const previousScenariosContext = iaHypotheses.length > 0 
+      ? `\nSCÉNARIOS IA DÉJÀ GÉNÉRÉS (${iaHypotheses.length}):\n${iaHypotheses.map((h, i) => 
+          `${i + 1}. ${h.name} (Score: ${h.score || '?'}/10)\n   Antennes: ${h.items?.map(a => a.nom).join(', ')}\n   Approche: ${h.approche || 'N/A'}`
+        ).join('\n')}\n\n⚠️ IMPORTANT: Tu dois proposer un scénario DIFFÉRENT et MEILLEUR que les précédents. Analyse leurs faiblesses et propose une approche innovante qui corrige ces faiblesses.`
+      : '';
+
+    const scenarioNumber = iaHypotheses.length + 1;
+    
+    const prompt = `Tu es un expert ELITE en stratégie territoriale médico-sociale. Tu dois proposer le MEILLEUR scénario possible.
 
 CONTEXTE:
 - Territoire: Côte-d'Or (département 21), France
@@ -1189,19 +1208,21 @@ ${JSON.stringify(dataContext, null, 2)}
 - IME Semur (47.4833, 4.3333) 
 - CME Montbard (47.6250, 4.3333)
 
-HYPOTHÈSE EXISTANTE:
+HYPOTHÈSE MANUELLE:
 - Hypothèse 1: ${JSON.stringify(HYPOTHESES.hyp1.items.map(a => ({ nom: a.nom, coords: a.coords, zone: a.zone })))}
+${previousScenariosContext}
 
 ZONES BLANCHES IDENTIFIÉES (communes > 35km moy.):
 ${dataContext.zoneBlanches.join(', ')}
 
-MISSION:
-1. Analyse les données et identifie les patterns, forces et faiblesses du maillage actuel
-2. Évalue objectivement l'hypothèse 1
-3. PROPOSE UNE HYPOTHÈSE IA INNOVANTE différente, qui pourrait:
-   - Mieux couvrir les zones blanches
-   - Réduire encore plus les distances
-   - Proposer une approche créative (mobile, hub, partenariat, etc.)
+MISSION - SCÉNARIO IA #${scenarioNumber}:
+1. Analyse les données et identifie les patterns, forces et faiblesses
+2. ${iaHypotheses.length > 0 ? 'Analyse les FAIBLESSES des scénarios IA précédents et AMÉLIORE' : 'Évalue objectivement l\'hypothèse 1'}
+3. PROPOSE UN SCÉNARIO IA #${scenarioNumber} INNOVANT qui:
+   - ${iaHypotheses.length > 0 ? 'SURPASSE les scénarios précédents en couverture ET en innovation' : 'Mieux couvrir les zones blanches'}
+   - Réduise DRASTIQUEMENT les distances (objectif: -30% minimum)
+   - Approche CRÉATIVE et DIFFÉRENTE: mobile, hub, partenariat école, temps partagé, etc.
+   - ${iaHypotheses.length > 0 ? 'ÉVITE les mêmes emplacements que les scénarios précédents' : ''}
 
 FORMAT DE RÉPONSE OBLIGATOIRE (JSON):
 {
@@ -1230,14 +1251,16 @@ FORMAT DE RÉPONSE OBLIGATOIRE (JSON):
       }
     ],
     "beneficesAttendus": ["bénéfice 1", "bénéfice 2"],
-    "score": 8
+    "score": 8,
+    "pourquoiMeilleur": "Explication de pourquoi ce scénario est meilleur que les précédents"
   },
   "recommandation": "Ta recommandation finale en 2-3 phrases"
 }
 
 IMPORTANT: 
 - Utilise UNIQUEMENT des coordonnées GPS valides en Côte-d'Or (lat: 47.0-48.0, lon: 3.5-5.5)
-- L'hypothèse 3 doit être DIFFÉRENTE et INNOVANTE par rapport aux 2 premières
+- Le scénario IA #${scenarioNumber} doit être DIFFÉRENT et MEILLEUR que tout ce qui existe
+- ${iaHypotheses.length > 0 ? 'NE PAS réutiliser les mêmes antennes/emplacements que les scénarios précédents!' : ''}
 - Réponds UNIQUEMENT en JSON valide, sans markdown ni texte autour`;
 
     try {
@@ -1250,24 +1273,30 @@ IMPORTANT:
       const analysisData = JSON.parse(jsonMatch[0]);
       setIaAnalysis(analysisData);
       
-      // Créer l'hypothèse 3 dans le format attendu
-      if (analysisData.hypothese3) {
-        const hyp3 = {
-          name: analysisData.hypothese3.name,
-          description: analysisData.hypothese3.description,
-          approche: analysisData.hypothese3.approche,
-          items: analysisData.hypothese3.items.map(item => ({
+      // Créer le scénario IA numéroté
+      const hypData = analysisData.hypotheseIA || analysisData.hypothese3;
+      if (hypData) {
+        const newScenario = {
+          id: scenarioNumber,
+          name: `Scénario IA #${scenarioNumber}`,
+          subtitle: hypData.name?.replace(/Hypothèse\s*(IA|3)\s*:?\s*/i, '') || hypData.description,
+          description: hypData.description,
+          approche: hypData.approche,
+          items: hypData.items.map(item => ({
             nom: item.nom,
             coords: item.coords,
             range: item.range || 15,
             zone: item.zone,
             justification: item.justification
           })),
-          beneficesAttendus: analysisData.hypothese3.beneficesAttendus,
-          score: analysisData.hypothese3.score,
+          beneficesAttendus: hypData.beneficesAttendus,
+          pourquoiMeilleur: hypData.pourquoiMeilleur,
+          score: hypData.score,
           generatedAt: new Date().toISOString()
         };
-        setIaHypothesis(hyp3);
+        // Ajouter au tableau des scénarios IA
+        setIaHypotheses(prev => [...prev, newScenario]);
+        setActiveIaHypIndex(iaHypotheses.length); // Activer le nouveau scénario
         setIaSaved(false);
       }
     } catch (err) {
@@ -1276,7 +1305,7 @@ IMPORTANT:
     } finally {
       setIaLoading(false);
     }
-  }, [data, aggregatedData, stats, coverage]);
+  }, [data, aggregatedData, stats, coverage, iaHypotheses]);
 
   // Export de l'hypothèse générée
   const exportHypothesis = useCallback(() => {
@@ -1392,14 +1421,18 @@ IMPORTANT:
                 ${hyp === 'hyp1' ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
               Hypothèse 1
             </button>
-            {iaHypothesis && (
-              <button onClick={() => setHyp('hyp3')}
+            {iaHypotheses.length > 0 && iaHypotheses.map((scenario, idx) => (
+              <button 
+                key={scenario.id || idx}
+                onClick={() => { setActiveIaHypIndex(idx); setHyp('hyp3'); }}
                 className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-1
-                  ${hyp === 'hyp3' ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
+                  ${hyp === 'hyp3' && activeIaHypIndex === idx 
+                    ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white' 
+                    : 'text-slate-600 hover:bg-slate-50'}`}>
                 <Sparkles className="w-3 h-3" />
-                Hypothèse IA
+                IA #{scenario.id || idx + 1}
               </button>
-            )}
+            ))}
           </div>
 
           {/* Toggles visualisation */}
@@ -3023,10 +3056,22 @@ IMPORTANT:
           margin: 12px;
         }
         .leaflet-popup {
-          z-index: 800 !important;
+          z-index: 1000 !important;
         }
         .leaflet-popup-pane {
-          z-index: 800 !important;
+          z-index: 1000 !important;
+        }
+        .leaflet-pane {
+          z-index: 400 !important;
+        }
+        .leaflet-overlay-pane {
+          z-index: 500 !important;
+        }
+        .leaflet-marker-pane {
+          z-index: 600 !important;
+        }
+        .leaflet-tooltip-pane {
+          z-index: 700 !important;
         }
       `}</style>
 
